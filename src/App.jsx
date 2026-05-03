@@ -443,7 +443,19 @@ export default function App() {
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
   const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [] });
-  const [carregant] = useState(false);
+  const [carregant, setCarregant] = useState(true);
+
+  useEffect(() => {
+    carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
+  }, []);
+
+  useEffect(() => {
+    const taules = ["granges","lots","entrades","sortides","baixes","tractaments"];
+    const subs = taules.map(t => supabase.channel("rt_"+t).on("postgres_changes",{event:"*",schema:"public",table:t},()=>{carregarTot().then(setData).catch(()=>{});}).subscribe());
+    return () => subs.forEach(s => supabase.removeChannel(s));
+  }, []);
+
+  if (carregant) return (<div style={{height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#13131f"}}><div style={{fontSize:52,marginBottom:16}}>🐷</div><div style={{fontSize:16,color:"rgba(255,255,255,0.6)"}}>Carregant dades...</div></div>);
   const [nav, setNav] = useState("lots");
   const [granjaId, setGranjaId] = useState(null);
   const [lotId, setLotId] = useState(null);
