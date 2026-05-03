@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { supabase } from "./supabase"
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -441,7 +442,7 @@ export default function App() {
 
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
-  const [data, setData] = useState(INIT);
+  const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [] });
   const [carregant] = useState(false);
   const [nav, setNav] = useState("lots");
   const [granjaId, setGranjaId] = useState(null);
