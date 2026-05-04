@@ -9,36 +9,6 @@ const mkE=(id,da,ca,pe,or="")=>({id,data:da,caps:ca,pesKg:pe,origen:or});
 const mkS=(id,da,ca,pe,td="escorxador",de="")=>({id,data:da,caps:ca,pesKg:pe,tipusDesti:td,desti:de});
 const mkB=(id,da,ca,cs="")=>({id,data:da,caps:ca,causa:cs});
 
-const INIT={
-  transicio:[
-    {id:1,nom:"Can Torrents",lots:[
-      mkL(1001,"Trans. A-23",[mkE(1,"2026-01-10",320,1920,"Maternitat Mas Colell")],[mkS(1,"2026-03-15",300,9000,"nouPreengreix","Pre A-23")],[mkB(1,"2026-01-20",5,"Diarrea"),mkB(2,"2026-04-21",2,"Diarrea"),mkB(3,"2026-04-22",3,"Diarrea")]),
-      mkL(1002,"Trans. B-24",[mkE(1,"2026-02-01",280,1680,"Maternitat Germans Puig"),mkE(2,"2026-02-05",70,420,"Maternitat Mas Colell")],[],[mkB(1,"2026-04-21",2,"Diarrea"),mkB(2,"2026-04-22",3,"Diarrea")]),
-    ]},
-    {id:2,nom:"Els Olivers",lots:[mkL(2001,"Trans. M-24",[mkE(1,"2026-01-20",450,2700,"Maternitat Mas Colell")],[mkS(1,"2026-03-20",200,6000,"nouPreengreix","Pre M-24")],[mkB(1,"2026-01-30",4,"Diarrea"),mkB(2,"2026-02-20",3,"")])]},
-    {id:3,nom:"Mas Nou",lots:[mkL(3001,"Trans. P-25",[mkE(1,"2026-03-01",500,3000,"Maternitat Germans Puig")],[],[mkB(1,"2026-04-18",3,"Diarrea"),mkB(2,"2026-04-20",4,"Respiratòria"),mkB(3,"2026-04-22",3,"Diarrea")])]},
-  ],
-  preengreix:[
-    {id:1,nom:"Can Torrents",lots:[
-      mkL(2101,"Pre A-23",[mkE(1,"2026-03-15",300,9000,"Trans. A-23 / Can Torrents")],[],[mkB(1,"2026-03-25",2,"Respiratòria"),mkB(2,"2026-04-10",1,"")]),
-      mkL(2102,"Pre C-25",[mkE(1,"2026-02-20",200,6000,"Maternitat Germans Puig")],[mkS(1,"2026-04-15",195,15600,"nouEngreix","Lot A-23 (Engreix)")],[mkB(1,"2026-03-01",2,"Diarrea"),mkB(2,"2026-03-15",3,"")]),
-    ]},
-    {id:2,nom:"Els Olivers",lots:[mkL(2201,"Pre M-24",[mkE(1,"2026-03-20",200,6000,"Trans. M-24 / Els Olivers")],[],[mkB(1,"2026-04-01",1,"Respiratòria")])]},
-    {id:3,nom:"Mas Nou",lots:[]},
-  ],
-  engreix:[
-    {id:1,nom:"Can Torrents",lots:[
-      mkL(101,"Lot A-23",[mkE(1,"2025-12-01",180,4860,"Proveïdor Mas Colell"),mkE(2,"2025-12-05",140,3780,"Proveïdor Germans Puig")],[],[mkB(1,"2025-12-15",2,"Respiratòria"),mkB(2,"2026-01-10",1,"Accident")]),
-      {...mkL(102,"Lot B-22",[mkE(1,"2025-07-01",280,7560,"Proveïdor Mas Colell")],[mkS(1,"2025-11-10",150,52500,"escorxador","Escorxador Girona"),mkS(2,"2025-11-15",122,42700,"escorxador","Escorxador Girona")],[mkB(1,"2025-07-20",3,"Respiratòria"),mkB(2,"2025-09-05",2,"Digestiva")]),estat:"tancat"},
-    ]},
-    {id:2,nom:"Els Olivers",lots:[mkL(201,"Lot M-24",[mkE(1,"2026-02-10",250,6750,"Proveïdor Germans Puig"),mkE(2,"2026-02-15",200,5400,"")],[mkS(1,"2026-04-01",80,18400,"escorxador","Escorxador Vic")],[mkB(1,"2026-02-28",1,""),mkB(2,"2026-04-20",2,"Respiratòria"),mkB(3,"2026-04-22",3,"Respiratòria")])]},
-    {id:3,nom:"Mas Nou",lots:[
-      mkL(301,"Lot P-25",[mkE(1,"2026-03-01",400,10800,"Proveïdor Mas Colell")],[],[mkB(1,"2026-03-10",5,"Respiratòria"),mkB(2,"2026-03-22",8,"Digestiva"),mkB(3,"2026-04-05",6,"")]),
-      mkL(302,"Lot Q-24",[mkE(1,"2025-11-15",350,9450,"")],[mkS(1,"2026-03-01",120,38400,"lot","Can Torrents / Lot A-23")],[mkB(1,"2025-12-01",2,""),mkB(2,"2026-01-15",1,"Accident")]),
-    ]},
-  ]
-};
-
 // ── Utils ──────────────────────────────────────────────────────────────────
 function dias(d1, d2) { return Math.max(0, Math.round((new Date(d2) - new Date(d1)) / 86400000)); }
 
