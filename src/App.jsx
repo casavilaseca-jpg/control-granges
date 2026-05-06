@@ -409,7 +409,7 @@ export default function App() {
 
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
-  const [data, setData] = useState(INIT);
+  const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [] });
   const [carregant] = useState(false);
   const [nav, setNav] = useState("lots");
   const [granjaId, setGranjaId] = useState(null);
