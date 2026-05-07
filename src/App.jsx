@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 
-
 const TODAY = new Date().toISOString().slice(0, 10);
 
 // ── Dades locals (en producció, substituir per Supabase) ───────────────────
@@ -444,18 +443,18 @@ function AppInterna() {
   );
   const goLot = (gid, lid) => { setGranjaId(gid); setLotId(lid); setTabLot("resum"); setNav("lots"); };
 
-  const handleEntrada = vals => {
+  const handleEntrada = async vals => {
     if (!vals.data || !vals.caps || !vals.pesKg) return;
-    const nova = { id: Date.now(), data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), origen: vals.origen || "" };
-    setData(d => ({ ...d, [fase]: d[fase].map(g => g.id !== granjaId ? g : { ...g, lots: g.lots.map(l => l.id !== lotId ? l : { ...l, entrades: [...l.entrades, nova] }) }) }));
+    const { error } = await supabase.from("entrades").insert({ lot_id: lotId, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), origen: vals.origen || "" });
+    if (error) { toast("Error en guardar ❌", "alerta"); return; }
     toast("Entrada registrada ✓"); setModal(null);
   };
 
-  const handleSortida = vals => {
+  const handleSortida = async vals => {
     if (!vals.data || !vals.caps || !vals.pesKg) return;
     const de = vals.tipusDesti === "lot" ? lotsPerDesti.find(x => x.value === vals.destiLot)?.label || "" : vals.desti || "";
-    const nova = { id: Date.now(), data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), tipusDesti: vals.tipusDesti, desti: de };
-    setData(d => ({ ...d, [fase]: d[fase].map(g => g.id !== granjaId ? g : { ...g, lots: g.lots.map(l => l.id !== lotId ? l : { ...l, sortides: [...l.sortides, nova] }) }) }));
+    const { error } = await supabase.from("sortides").insert({ lot_id: lotId, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), tipus_desti: vals.tipusDesti, desti: de });
+    if (error) { toast("Error en guardar ❌", "alerta"); return; }
     toast("Sortida registrada ✓"); setModal(null);
     if (vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") {
       const faseDesti = vals.tipusDesti === "nouPreengreix" ? "preengreix" : "engreix";
@@ -463,41 +462,37 @@ function AppInterna() {
     }
   };
 
-  const handleBaixa = vals => {
+  const handleBaixa = async vals => {
     if (!vals.data || !vals.caps || parseInt(vals.caps) < 1) return;
-    const nova = { id: Date.now(), data: vals.data, caps: parseInt(vals.caps), causa: vals.causa || "" };
-    setData(d => ({ ...d, [fase]: d[fase].map(g => g.id !== granjaId ? g : { ...g, lots: g.lots.map(l => l.id !== lotId ? l : { ...l, baixes: [...l.baixes, nova] }) }) }));
-    const lotAct = { ...lot, baixes: [...(lot?.baixes || []), nova] };
-    const als = detectarAlertes(lotAct, granja?.nom || "", fase);
-    if (als.some(a => a.nivell === "alerta")) toast("🔴 Alerta de mortalitat", "alerta");
-    else if (als.some(a => a.nivell === "avis")) toast("🟡 Avís de mortalitat", "avis");
-    else toast("Baixa registrada ✓");
-    setModal(null);
+    const { error } = await supabase.from("baixes").insert({ lot_id: lotId, data: vals.data, caps: parseInt(vals.caps), causa: vals.causa || "" });
+    if (error) { toast("Error en guardar ❌", "alerta"); return; }
+    toast("Baixa registrada ✓"); setModal(null);
   };
 
-  const handleTractament = vals => {
+  const handleTractament = async vals => {
     if (!vals.data || !vals.medicament) return;
-    const nou = { id: Date.now(), data: vals.data, medicament: vals.medicament, recepta: vals.recepta || "", identificacio: vals.identificacio || "Corral infermeria", caps: parseInt(vals.caps) || 0 };
-    setData(d => ({ ...d, [fase]: d[fase].map(g => g.id !== granjaId ? g : { ...g, lots: g.lots.map(l => l.id !== lotId ? l : { ...l, tractaments: [...(l.tractaments || []), nou] }) }) }));
+    const { error } = await supabase.from("tractaments").insert({ lot_id: lotId, data: vals.data, medicament: vals.medicament, recepta: vals.recepta || "", identificacio: vals.identificacio || "Corral infermeria", caps: parseInt(vals.caps) || 0 });
+    if (error) { toast("Error en guardar ❌", "alerta"); return; }
     toast("Tractament registrat ✓"); setModal(null);
   };
 
-  const handleNouLot = vals => {
+  const handleNouLot = async vals => {
     if (!vals.nom || !vals.caps || !vals.pesKg) return;
-    const nl = { id: Date.now(), nom: vals.nom, estat: "obert", entrades: [{ id: 1, data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), origen: vals.origen || "" }], sortides: [], baixes: [], tractaments: [] };
-    setData(d => ({ ...d, [fase]: d[fase].map(g => g.id !== granjaId ? g : { ...g, lots: [...g.lots, nl] }) }));
-    setLotId(nl.id); toast("Lot creat ✓"); setModal(null);
+    const { data: lotData, error: lotErr } = await supabase.from("lots").insert({ granja_id: granjaId, nom: vals.nom, fase, estat: "obert" }).select().single();
+    if (lotErr) { toast("Error en crear lot ❌", "alerta"); return; }
+    await supabase.from("entrades").insert({ lot_id: lotData.id, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), origen: vals.origen || "" });
+    toast("Lot creat ✓"); setModal(null); setLotId(lotData.id);
   };
 
-  const handleNovaGranja = vals => {
+  const handleNovaGranja = async vals => {
     if (!vals.nom) return;
-    const ng = { id: Date.now(), nom: vals.nom, lots: [] };
-    setData(d => ({ ...d, [fase]: [...d[fase], ng] }));
-    setGranjaId(ng.id); toast("Granja creada ✓"); setModal(null);
+    const { data: gData, error } = await supabase.from("granges").insert({ nom: vals.nom, fase }).select().single();
+    if (error) { toast("Error en crear granja ❌", "alerta"); return; }
+    toast("Granja creada ✓"); setModal(null); setGranjaId(gData.id);
   };
 
-  const handleTancarLot = () => {
-    setData(d => ({ ...d, [fase]: d[fase].map(g => g.id !== granjaId ? g : { ...g, lots: g.lots.map(l => l.id !== lotId ? l : { ...l, estat: "tancat" }) }) }));
+  const handleTancarLot = async () => {
+    await supabase.from("lots").update({ estat: "tancat" }).eq("id", lotId);
     setConfirmTancar(false); toast("Lot tancat");
   };
 
