@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { supabase } from "./supabase";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
