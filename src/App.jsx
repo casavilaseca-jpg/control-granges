@@ -407,6 +407,45 @@ export default function App() {
   return <AppInterna />;
 }
 
+function ModalEliminar({ item, onConfirm, onCancel }) {
+  const [usr, setUsr] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [error, setError] = useState(false);
+  const tipusLabel = item.tipus === "granja" ? "granja" : "lot";
+
+  const confirmar = () => {
+    if (usr === "admin" && pwd === "admin1234") {
+      onConfirm();
+    } else {
+      setError(true);
+      setTimeout(() => setError(false), 2000);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 250, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.7)" }}>
+      <div style={{ background: "#1e1e2e", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
+        <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 20px" }} />
+        <div style={{ fontSize: 22, marginBottom: 6, textAlign: "center" }}>🗑️</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: "#fff", textAlign: "center" }}>Eliminar {tipusLabel}</div>
+        <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 4, textAlign: "center" }}>«{item.nom}»</div>
+        <div style={{ fontSize: 13, color: "#E24B4A", marginBottom: 20, textAlign: "center" }}>Aquesta acció és permanent i no es pot desfer.</div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Usuari</label>
+          <input value={usr} onChange={e => setUsr(e.target.value)} placeholder="admin" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Contrasenya</label>
+          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmar()} placeholder="••••••••" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
+        </div>
+        {error && <div style={{ background: "#FCEBEB", borderRadius: 10, padding: "10px", fontSize: 13, color: "#A32D2D", marginBottom: 14, textAlign: "center" }}>Credencials incorrectes</div>}
+        <button onClick={confirmar} style={{ width: "100%", padding: "15px", background: "#E24B4A", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>Eliminar definitivament</button>
+        <button onClick={onCancel} style={{ width: "100%", padding: "14px", background: "transparent", border: "none", fontSize: 15, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>Cancel·lar</button>
+      </div>
+    </div>
+  );
+}
+
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
   const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [] });
@@ -421,6 +460,7 @@ function AppInterna() {
   const [showFaseMenu, setShowFaseMenu] = useState(false);
   const [confirmTancar, setConfirmTancar] = useState(false);
   const [sortidaPendent, setSortidaPendent] = useState(null);
+  const [confirmarEliminar, setConfirmarEliminar] = useState(null);
 
   useEffect(() => {
     carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
@@ -459,6 +499,19 @@ function AppInterna() {
       .map(l => ({ value: String(l.id), label: "[" + FASES[f].label + "] " + g.nom + " / " + l.nom })))
   );
   const goLot = (gid, lid) => { setGranjaId(gid); setLotId(lid); setTabLot("resum"); setNav("lots"); };
+
+  const handleEliminar = async () => {
+    if (!confirmarEliminar) return;
+    if (confirmarEliminar.tipus === "granja") {
+      await supabase.from("granges").delete().eq("id", confirmarEliminar.id);
+      setGranjaId(null); setLotId(null);
+    } else {
+      await supabase.from("lots").delete().eq("id", confirmarEliminar.id);
+      setLotId(null);
+    }
+    const newData = await carregarTot(); setData(newData);
+    toast("Eliminat correctament"); setConfirmarEliminar(null);
+  };
 
   const handleEntrada = async vals => {
     if (!vals.data || !vals.caps || !vals.pesKg) return;
@@ -588,30 +641,42 @@ function AppInterna() {
         const lotsO = g.lots.filter(l => l.estat === "obert").length;
         const alsG = g.lots.flatMap(l => detectarAlertes(l, g.nom, fase));
         const critG = alsG.some(a => a.nivell === "alerta"); const avisG = alsG.some(a => a.nivell === "avis");
-        return (<div key={g.id} onClick={() => setGranjaId(g.id)} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", cursor: "pointer", border: "1.5px solid " + (critG ? "#F7C1C1" : avisG ? "#FAC775" : "transparent") }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>{g.nom}</div>
-            {critG && <span style={{ fontSize: 11, background: "#FCEBEB", color: "#A32D2D", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>ALERTA</span>}
-            {!critG && avisG && <span style={{ fontSize: 11, background: "#FAEEDA", color: "#633806", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>AVÍS</span>}
+        return (<div key={g.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", border: "1.5px solid " + (critG ? "#F7C1C1" : avisG ? "#FAC775" : "transparent") }}>
+          <div onClick={() => setGranjaId(g.id)} style={{ cursor: "pointer" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{g.nom}</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {critG && <span style={{ fontSize: 11, background: "#FCEBEB", color: "#A32D2D", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>ALERTA</span>}
+                {!critG && avisG && <span style={{ fontSize: 11, background: "#FAEEDA", color: "#633806", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>AVÍS</span>}
+              </div>
+            </div>
+            <div style={{ fontSize: 13, color: "#888" }}>{g.lots.length} lots · {lotsO} obert{lotsO !== 1 ? "s" : ""}</div>
           </div>
-          <div style={{ fontSize: 13, color: "#888" }}>{g.lots.length} lots · {lotsO} obert{lotsO !== 1 ? "s" : ""}</div>
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={e => { e.stopPropagation(); setConfirmarEliminar({ tipus: "granja", id: g.id, nom: g.nom }); }} style={{ border: "none", background: "transparent", color: "#ccc", fontSize: 18, cursor: "pointer", padding: "2px 6px" }} title="Eliminar granja">🗑️</button>
+          </div>
         </div>);
       })}
       {granjaId && granja?.lots.map(l => {
         const st = calcStats(l); const hc = heatColor(st.pct); const b = bdg(l.estat);
         const als = detectarAlertes(l, granja.nom, fase);
         const crit = als.some(a => a.nivell === "alerta"); const avis = als.some(a => a.nivell === "avis");
-        return (<div key={l.id} onClick={() => { setLotId(l.id); setTabLot("resum"); }} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", cursor: "pointer", border: "1.5px solid " + (crit ? "#F7C1C1" : avis ? "#FAC775" : "transparent") }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>{l.nom}</div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {crit && <span style={{ fontSize: 11, background: "#FCEBEB", color: "#A32D2D", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>ALERTA</span>}
-              {!crit && avis && <span style={{ fontSize: 11, background: "#FAEEDA", color: "#633806", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>AVÍS</span>}
-              <span style={{ fontSize: 11, background: b.bg, color: b.color, borderRadius: 8, padding: "3px 10px" }}>{b.text}</span>
+        return (<div key={l.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", border: "1.5px solid " + (crit ? "#F7C1C1" : avis ? "#FAC775" : "transparent") }}>
+          <div onClick={() => { setLotId(l.id); setTabLot("resum"); }} style={{ cursor: "pointer" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{l.nom}</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {crit && <span style={{ fontSize: 11, background: "#FCEBEB", color: "#A32D2D", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>ALERTA</span>}
+                {!crit && avis && <span style={{ fontSize: 11, background: "#FAEEDA", color: "#633806", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>AVÍS</span>}
+                <span style={{ fontSize: 11, background: b.bg, color: b.color, borderRadius: 8, padding: "3px 10px" }}>{b.text}</span>
+              </div>
             </div>
+            <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#555", marginBottom: 8 }}><span>🐷 {st.tCE} caps</span><span>📅 {st.die} dies</span><span>📉 {st.tB} baixes</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ background: hc.bg, color: hc.color, borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }}>Mort. {st.pct}%</span><span style={{ fontSize: 13, color: "#888" }}>{st.cap} caps actuals</span></div>
           </div>
-          <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#555", marginBottom: 8 }}><span>🐷 {st.tCE} caps</span><span>📅 {st.die} dies</span><span>📉 {st.tB} baixes</span></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ background: hc.bg, color: hc.color, borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }}>Mort. {st.pct}%</span><span style={{ fontSize: 13, color: "#888" }}>{st.cap} caps actuals</span></div>
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={e => { e.stopPropagation(); setConfirmarEliminar({ tipus: "lot", id: l.id, nom: l.nom }); }} style={{ border: "none", background: "transparent", color: "#ccc", fontSize: 18, cursor: "pointer", padding: "2px 6px" }} title="Eliminar lot">🗑️</button>
+          </div>
         </div>);
       })}
       {granjaId && <div style={{ padding: "4px 12px" }}><button onClick={() => setModal("nouLot")} style={{ width: "100%", padding: "14px", background: fc.bgLight, border: "1.5px dashed " + fc.color, borderRadius: 14, fontSize: 15, fontWeight: 600, color: fc.colorDark, cursor: "pointer" }}>+ Nou lot</button></div>}
@@ -764,6 +829,8 @@ function AppInterna() {
           </div>
         </div>
       )}
+
+      {confirmarEliminar && <ModalEliminar item={confirmarEliminar} onConfirm={handleEliminar} onCancel={() => setConfirmarEliminar(null)} />}
     </div>
   );
 }
