@@ -52,9 +52,9 @@ function heatColor(p) {
 const bdg = e => e === "obert" ? { bg: "#e1f5ee", color: "#0f6e56", text: "Obert" } : { bg: "#f1efe8", color: "#5f5e5a", text: "Tancat" };
 
 const FASES = {
-  transicio:  { key: "transicio",  label: "Transició",   emoji: "🐣", color: "#7F77DD", bgLight: "#EEEDFE", colorDark: "#3C3489", pesRang: "5–25 kg" },
-  preengreix: { key: "preengreix", label: "Pre-engreix", emoji: "🐖", color: "#E67E22", bgLight: "#FEF0E4", colorDark: "#7D3C0A", pesRang: "25–50 kg" },
-  engreix:    { key: "engreix",    label: "Engreix",     emoji: "🐷", color: "#1D9E75", bgLight: "#e1f5ee", colorDark: "#085041", pesRang: "50–110 kg" }
+  transicio:  { key: "transicio",  label: "Transició",   emoji: "🐣", color: "#6366f1", bgLight: "#eef2ff", colorDark: "#3730a3", pesRang: "5–25 kg" },
+  preengreix: { key: "preengreix", label: "Pre-engreix", emoji: "🐖", color: "#f59e0b", bgLight: "#fffbeb", colorDark: "#92400e", pesRang: "25–50 kg" },
+  engreix:    { key: "engreix",    label: "Engreix",     emoji: "🐷", color: "#10b981", bgLight: "#ecfdf5", colorDark: "#065f46", pesRang: "50–110 kg" }
 };
 
 function destiOptions(fase) {
@@ -209,7 +209,7 @@ function PantallaExportacio({ data }) {
       <button onClick={() => setPreview(v => !v)} style={{ width: "100%", padding: "11px", border: "1.5px solid #ddd", borderRadius: 12, background: "transparent", fontSize: 13, color: "#555", cursor: "pointer", marginBottom: 10 }}>
         {preview ? "▲ Amagar previsualització" : "▼ Previsualitzar dades"}
       </button>
-      {preview && <div style={{ background: "#1e1e2e", borderRadius: 12, padding: "12px", marginBottom: 14, overflowX: "auto" }}><pre style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", margin: 0, whiteSpace: "pre", fontFamily: "monospace" }}>{lines.slice(0, 40).join("\n")}{lines.length > 40 ? "\n... i " + (lines.length - 40) + " línies més" : ""}</pre></div>}
+      {preview && <div style={{ background: "var(--modal-bg)", borderRadius: 12, padding: "12px", marginBottom: 14, overflowX: "auto" }}><pre style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", margin: 0, whiteSpace: "pre", fontFamily: "monospace" }}>{lines.slice(0, 40).join("\n")}{lines.length > 40 ? "\n... i " + (lines.length - 40) + " línies més" : ""}</pre></div>}
       <button onClick={() => downloadCsv(csvStr, "granges_" + TODAY + ".csv")} disabled={filtFases.length === 0 || filtTipus.length === 0}
         style={{ width: "100%", padding: "16px", background: filtFases.length > 0 && filtTipus.length > 0 ? "#1D9E75" : "#ccc", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <span style={{ fontSize: 20 }}>⬇️</span> Descarregar CSV
@@ -239,7 +239,7 @@ function CalculadoraPesada({ onConfirm, onCancel, capsTotal }) {
   const pesExt = modePes === "mostra" && pesMig > 0 && capsExt > 0 ? pesMig * capsExt : null;
   const pesFinal = modePes === "mostra" && pesExt ? pesExt : pesNet;
   const capsFinals = modePes === "mostra" ? capsExt : (capsPesats > 0 ? capsPesats : (capsTotal || 0));
-  const inp = { width: "100%", padding: "12px 10px", border: "1.5px solid #444", borderRadius: 10, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" };
+  const inp = { width: "100%", padding: "12px 10px", border: "1.5px solid var(--modal-border)", borderRadius: 10, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" };
   const lbl = { fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 4 };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.75)" }}>
@@ -301,7 +301,7 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
   return (<>
     {mostraPesada && <CalculadoraPesada capsTotal={parseInt(vals.caps) || capsActuals || 0} onCancel={() => setMostraPesada(false)} onConfirm={({ pesKg, caps }) => { setVals(v => ({ ...v, pesKg, ...(caps ? { caps } : {}) })); setMostraPesada(false); }} />}
     <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.6)" }}>
-      <div style={{ background: "#1e1e2e", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
+      <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 16px" }} />
         <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 16, color: "#fff" }}>{title}</div>
         {ambPes && (
@@ -313,8 +313,8 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
           <div key={f.key} style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{f.label}</label>
             {f.type === "select"
-              ? <select value={vals[f.key]} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid #444", borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }}>{f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
-              : <input type={f.type} value={vals[f.key]} placeholder={f.placeholder || ""} inputMode={f.inputMode} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid #444", borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
+              ? <select value={vals[f.key]} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}>{f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+              : <input type={f.type} value={vals[f.key]} placeholder={f.placeholder || ""} inputMode={f.inputMode} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} />
             }
           </div>
         ))}
@@ -375,26 +375,28 @@ function PantallaLogin({ onLogin }) {
     if (usuari === "admin" && contrasenya === "admin1234") { onLogin(); }
     else { setError(true); setTimeout(() => setError(false), 2500); }
   };
-  const inp = { width: "100%", padding: "14px 12px", border: "1.5px solid #444", borderRadius: 12, fontSize: 16, background: "#2a2a3e", color: "#fff", boxSizing: "border-box", outline: "none" };
+  const inp = { width: "100%", padding: "14px 12px", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 16, background: "#fff", color: "#0f172a", boxSizing: "border-box", outline: "none", fontFamily: "var(--font-sans)" };
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#13131f", padding: "0 24px", fontFamily: "var(--font-sans),-apple-system,sans-serif" }}>
-      <div style={{ fontSize: 52, marginBottom: 12 }}>🐷</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Control de Granges</div>
-      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginBottom: 36 }}>Inicia sessió per continuar</div>
-      <div style={{ width: "100%", maxWidth: 340 }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)", padding: "0 24px", fontFamily: "var(--font-sans)" }}>
+      <div style={{ width: "100%", maxWidth: 360, background: "#fff", borderRadius: 24, padding: "40px 32px", boxShadow: "0 24px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🐷</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Control de Granges</div>
+          <div style={{ fontSize: 13, color: "#94a3b8" }}>Inicia sessió per continuar</div>
+        </div>
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Usuari</label>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Usuari</label>
           <input type="text" value={usuari} onChange={e => { setUsuari(e.target.value); setError(false); }} placeholder="Usuari" autoCapitalize="none" style={inp} />
         </div>
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Contrasenya</label>
+        <div style={{ marginBottom: 24 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Contrasenya</label>
           <div style={{ position: "relative" }}>
             <input type={mostrar ? "text" : "password"} value={contrasenya} onChange={e => { setContrasenya(e.target.value); setError(false); }} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="Contrasenya" style={{ ...inp, paddingRight: 48 }} />
-            <button onClick={() => setMostrar(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "rgba(255,255,255,0.4)", fontSize: 18, cursor: "pointer", padding: 0 }}>{mostrar ? "🙈" : "👁️"}</button>
+            <button onClick={() => setMostrar(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", fontSize: 18, cursor: "pointer", padding: 0 }}>{mostrar ? "🙈" : "👁️"}</button>
           </div>
         </div>
-        {error && <div style={{ background: "#FCEBEB", border: "1px solid #F7C1C1", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#A32D2D", marginBottom: 14, textAlign: "center" }}>Usuari o contrasenya incorrectes</div>}
-        <button onClick={handleLogin} style={{ width: "100%", padding: "15px", background: "#1D9E75", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer" }}>Entrar</button>
+        {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 16, textAlign: "center" }}>Usuari o contrasenya incorrectes</div>}
+        <button onClick={handleLogin} style={{ width: "100%", padding: "15px", background: "#10b981", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", letterSpacing: "0.02em" }}>Entrar</button>
       </div>
     </div>
   );
@@ -424,7 +426,7 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 250, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.7)" }}>
-      <div style={{ background: "#1e1e2e", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
+      <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
         <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 20px" }} />
         <div style={{ fontSize: 22, marginBottom: 6, textAlign: "center" }}>🗑️</div>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: "#fff", textAlign: "center" }}>Eliminar {tipusLabel}</div>
@@ -432,11 +434,11 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
         <div style={{ fontSize: 13, color: "#E24B4A", marginBottom: 20, textAlign: "center" }}>Aquesta acció és permanent i no es pot desfer.</div>
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Usuari</label>
-          <input value={usr} onChange={e => setUsr(e.target.value)} placeholder="Escriu l'usuari" autoComplete="off" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
+          <input value={usr} onChange={e => setUsr(e.target.value)} placeholder="Escriu l'usuari" autoComplete="off" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} />
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Contrasenya</label>
-          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmar()} placeholder="Escriu la contrasenya" autoComplete="new-password" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
+          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmar()} placeholder="Escriu la contrasenya" autoComplete="new-password" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} />
         </div>
         {error && <div style={{ background: "#FCEBEB", borderRadius: 10, padding: "10px", fontSize: 13, color: "#A32D2D", marginBottom: 14, textAlign: "center" }}>Credencials incorrectes</div>}
         <button onClick={confirmar} style={{ width: "100%", padding: "15px", background: "#E24B4A", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>Eliminar definitivament</button>
@@ -641,7 +643,7 @@ function AppInterna() {
         const lotsO = g.lots.filter(l => l.estat === "obert").length;
         const alsG = g.lots.flatMap(l => detectarAlertes(l, g.nom, fase));
         const critG = alsG.some(a => a.nivell === "alerta"); const avisG = alsG.some(a => a.nivell === "avis");
-        return (<div key={g.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", border: "1.5px solid " + (critG ? "#F7C1C1" : avisG ? "#FAC775" : "transparent") }}>
+        return (<div key={g.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", boxShadow: "var(--shadow-sm)", border: "1.5px solid " + (critG ? "#F7C1C1" : avisG ? "#FAC775" : "transparent") }}>
           <div onClick={() => setGranjaId(g.id)} style={{ cursor: "pointer" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{g.nom}</div>
@@ -714,7 +716,7 @@ function AppInterna() {
   };
 
   if (carregant) return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#13131f" }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--modal-bg)" }}>
       <div style={{ fontSize: 52, marginBottom: 16 }}>🐷</div>
       <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>Carregant dades...</div>
     </div>
@@ -725,7 +727,7 @@ function AppInterna() {
       <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 300, display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none", width: "90%", maxWidth: 400 }}>
         {toasts.map(t => (<div key={t.id} style={{ background: t.t === "alerta" ? "#FCEBEB" : t.t === "avis" ? "#FAEEDA" : "#1D9E75", color: t.t === "alerta" ? "#A32D2D" : t.t === "avis" ? "#633806" : "#fff", borderRadius: 12, padding: "12px 18px", fontSize: 14, fontWeight: 500, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>{t.msg}</div>))}
       </div>
-      <div style={{ background: "var(--color-background-primary)", borderBottom: "1px solid #f0f0f0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
         <button onClick={() => setShowFaseMenu(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, border: "none", background: "var(--color-background-secondary)", borderRadius: 12, padding: "8px 14px", cursor: "pointer" }}>
           <span style={{ fontSize: 18 }}>{fc.emoji}</span>
           <span style={{ fontWeight: 700, fontSize: 15, color: fc.color }}>{fc.label}</span>
@@ -754,7 +756,7 @@ function AppInterna() {
         {nav === "lots" && lotId && <LotDetall />}
         {nav === "exportacio" && <PantallaExportacio data={data} />}
       </div>
-      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "var(--color-background-primary)", borderTop: "1px solid #f0f0f0", display: "flex", zIndex: 100 }}>
+      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
         {[["lots", "🏠", "Lots"], ["global", "📊", "Resum"], ["alertes", "🔔", "Alertes"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
           <button key={k} onClick={() => { setNav(k); if (k === "lots") setLotId(null); }} style={{ flex: 1, padding: "10px 0 14px", border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <span style={{ fontSize: 20, position: "relative" }}>{icon}{k === "alertes" && novesAlertes.length > 0 && <span style={{ position: "absolute", top: -4, right: -6, width: 16, height: 16, background: nCrit > 0 ? "#E24B4A" : "#BA7517", color: "#fff", borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{novesAlertes.length}</span>}</span>
@@ -770,8 +772,8 @@ function AppInterna() {
         extraContent={(vals, setVals) => (
           <div>
             {(vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") && <div style={{ marginBottom: 14, background: "rgba(29,158,117,0.15)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(29,158,117,0.3)" }}><div style={{ fontSize: 13, color: "#a0f0d0", fontWeight: 600, marginBottom: 4 }}>✨ Flux automàtic</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{vals.tipusDesti === "nouPreengreix" ? "Es crearà un nou lot de pre-engreix automàticament." : "Es crearà un nou lot d'engreix directament."}</div></div>}
-            {vals.tipusDesti === "lot" && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Lot de destí</label><select value={vals.destiLot || ""} onChange={e => setVals(v => ({ ...v, destiLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid #444", borderRadius: 12, fontSize: 14, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }}><option value="">— Selecciona —</option>{lotsPerDesti.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>}
-            {(vals.tipusDesti === "escorxador" || vals.tipusDesti === "altre") && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{vals.tipusDesti === "escorxador" ? "Nom escorxador (opcional)" : "Destí (opcional)"}</label><input type="text" value={vals.desti || ""} onChange={e => setVals(v => ({ ...v, desti: e.target.value }))} placeholder={vals.tipusDesti === "escorxador" ? "Ex: Escorxador Girona" : "Ex: Venda directa"} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid #444", borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} /></div>}
+            {vals.tipusDesti === "lot" && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Lot de destí</label><select value={vals.destiLot || ""} onChange={e => setVals(v => ({ ...v, destiLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}><option value="">— Selecciona —</option>{lotsPerDesti.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>}
+            {(vals.tipusDesti === "escorxador" || vals.tipusDesti === "altre") && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{vals.tipusDesti === "escorxador" ? "Nom escorxador (opcional)" : "Destí (opcional)"}</label><input type="text" value={vals.desti || ""} onChange={e => setVals(v => ({ ...v, desti: e.target.value }))} placeholder={vals.tipusDesti === "escorxador" ? "Ex: Escorxador Girona" : "Ex: Venda directa"} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} /></div>}
           </div>
         )}
         onConfirm={handleSortida} onCancel={() => setModal(null)} />}
@@ -789,7 +791,7 @@ function AppInterna() {
         const fcDesti = FASES[fd];
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.6)" }}>
-            <div style={{ background: "#1e1e2e", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
               <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 16px" }} />
               <div style={{ fontSize: 11, fontWeight: 600, color: fcDesti.color, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Flux automàtic {fcDesti.emoji}</div>
               <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Crear lot de {fcDesti.label}</div>
@@ -797,9 +799,9 @@ function AppInterna() {
               <div style={{ background: fcDesti.color + "22", border: "1px solid " + fcDesti.color + "55", borderRadius: 12, padding: "12px 14px", marginBottom: 20, display: "flex", gap: 16, flexWrap: "wrap" }}>
                 {[["Caps", sortidaPendent.caps], ["Pes total", sortidaPendent.pesKg + " kg"], ["Pes mig", (sortidaPendent.pesKg / sortidaPendent.caps).toFixed(1) + " kg"], ["Data", sortidaPendent.data]].map(([lbl, val]) => (<div key={lbl} style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 2 }}>{lbl}</div><div style={{ fontSize: 16, fontWeight: 700, color: fcDesti.color }}>{val}</div></div>))}
               </div>
-              <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Nom del nou lot de {fcDesti.label}</label><input type="text" placeholder={"Ex: " + (fd === "preengreix" ? "Pre" : "Lot") + " C-26"} value={sortidaPendent.nomLot || ""} onChange={e => setSortidaPendent(p => ({ ...p, nomLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid #444", borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} /></div>
+              <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Nom del nou lot de {fcDesti.label}</label><input type="text" placeholder={"Ex: " + (fd === "preengreix" ? "Pre" : "Lot") + " C-26"} value={sortidaPendent.nomLot || ""} onChange={e => setSortidaPendent(p => ({ ...p, nomLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} /></div>
               <div style={{ marginBottom: 20 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Granja de destí</label>
-                <select value={sortidaPendent.granjaDestiId || ""} onChange={e => setSortidaPendent(p => ({ ...p, granjaDestiId: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid #444", borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }}>
+                <select value={sortidaPendent.granjaDestiId || ""} onChange={e => setSortidaPendent(p => ({ ...p, granjaDestiId: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}>
                   <option value="">— Selecciona una granja —</option>
                   {(data[fd] || []).map(g => <option key={g.id} value={g.id}>{g.nom}</option>)}
                 </select>
@@ -820,7 +822,7 @@ function AppInterna() {
 
       {confirmTancar && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.6)" }}>
-          <div style={{ background: "#1e1e2e", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
+          <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
             <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 20px" }} />
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "#fff" }}>Tancar lot?</div>
             <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", marginBottom: 24 }}>Un cop tancat no es podran afegir més registres al lot.</div>
