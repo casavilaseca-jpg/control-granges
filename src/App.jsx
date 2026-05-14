@@ -83,7 +83,28 @@ function defaultDesti(fase) {
 }
 
 // ── Supabase DB ────────────────────────────────────────────────────────────
-
+async function carregarTot() {
+  const [{ data: gDB }, { data: lDB }, { data: eDB }, { data: sDB }, { data: bDB }, { data: tDB }] = await Promise.all([
+    supabase.from("granges").select("*"),
+    supabase.from("lots").select("*"),
+    supabase.from("entrades").select("*"),
+    supabase.from("sortides").select("*"),
+    supabase.from("baixes").select("*"),
+    supabase.from("tractaments").select("*"),
+  ]);
+  const result = { transicio: [], preengreix: [], engreix: [] };
+  for (const g of (gDB || [])) {
+    const lots = (lDB || []).filter(l => l.granja_id === g.id).map(l => ({
+      id: l.id, nom: l.nom, estat: l.estat,
+      entrades:    (eDB || []).filter(e => e.lot_id === l.id).map(e => ({ id: e.id, data: e.data, caps: e.caps, pesKg: e.pes_kg, origen: e.origen })),
+      sortides:    (sDB || []).filter(s => s.lot_id === l.id).map(s => ({ id: s.id, data: s.data, caps: s.caps, pesKg: s.pes_kg, tipusDesti: s.tipus_desti, desti: s.desti })),
+      baixes:      (bDB || []).filter(b => b.lot_id === l.id).map(b => ({ id: b.id, data: b.data, caps: b.caps, causa: b.causa })),
+      tractaments: (tDB || []).filter(t => t.lot_id === l.id).map(t => ({ id: t.id, data: t.data, medicament: t.medicament, recepta: t.recepta, identificacio: t.identificacio, caps: t.caps })),
+    }));
+    if (result[g.fase]) result[g.fase].push({ id: g.id, nom: g.nom, lots });
+  }
+  return result;
+}
 
 // ── CSV ────────────────────────────────────────────────────────────────────
 function esc(v) { const s = String(v ?? ""); return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : "" + s; }
@@ -389,7 +410,7 @@ export default function App() {
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
   const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [] });
-  const [carregant] = useState(false);
+  const [carregant, setCarregant] = useState(true);
   const [nav, setNav] = useState("lots");
   const [granjaId, setGranjaId] = useState(null);
   const [lotId, setLotId] = useState(null);
@@ -400,6 +421,22 @@ function AppInterna() {
   const [showFaseMenu, setShowFaseMenu] = useState(false);
   const [confirmTancar, setConfirmTancar] = useState(false);
   const [sortidaPendent, setSortidaPendent] = useState(null);
+
+  useEffect(() => {
+    carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
+  }, []);
+
+  useEffect(() => {
+    const taules = ["granges", "lots", "entrades", "sortides", "baixes", "tractaments"];
+    const subs = taules.map(t =>
+      supabase.channel("rt_" + t)
+        .on("postgres_changes", { event: "*", schema: "public", table: t }, () => {
+          carregarTot().then(setData).catch(() => {});
+        })
+        .subscribe()
+    );
+    return () => subs.forEach(s => supabase.removeChannel(s));
+  }, []);
 
   const toast = useCallback((msg, t = "ok") => {
     const id = Date.now(); setToasts(ts => [...ts, { id, msg, t }]);
@@ -461,6 +498,7 @@ function AppInterna() {
     const { data: lotData, error: lotErr } = await supabase.from("lots").insert({ granja_id: granjaId, nom: vals.nom, fase, estat: "obert" }).select().single();
     if (lotErr) { toast("Error en crear lot ❌", "alerta"); return; }
     await supabase.from("entrades").insert({ lot_id: lotData.id, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), origen: vals.origen || "" });
+    const newData = await carregarTot(); setData(newData);
     toast("Lot creat ✓"); setModal(null); setLotId(lotData.id);
   };
 
@@ -468,6 +506,7 @@ function AppInterna() {
     if (!vals.nom) return;
     const { data: gData, error } = await supabase.from("granges").insert({ nom: vals.nom, fase }).select().single();
     if (error) { toast("Error en crear granja ❌", "alerta"); return; }
+    const newData = await carregarTot(); setData(newData);
     toast("Granja creada ✓"); setModal(null); setGranjaId(gData.id);
   };
 
@@ -608,6 +647,13 @@ function AppInterna() {
       </div>
     );
   };
+
+  if (carregant) return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#13131f" }}>
+      <div style={{ fontSize: 52, marginBottom: 16 }}>🐷</div>
+      <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>Carregant dades...</div>
+    </div>
+  );
 
   return (
     <div style={{ fontFamily: "var(--font-sans),-apple-system,BlinkMacSystemFont,sans-serif", fontSize: 14, color: "var(--color-text-primary)", display: "flex", flexDirection: "column", height: "100vh", maxWidth: 480, margin: "0 auto", position: "relative", overflow: "hidden" }}>
