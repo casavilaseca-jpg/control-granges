@@ -722,7 +722,7 @@ function AppInterna() {
 
   return (
     <div style={{ fontFamily: "var(--font-sans),-apple-system,BlinkMacSystemFont,sans-serif", fontSize: 14, color: "var(--color-text-primary)", display: "flex", flexDirection: "column", height: "100vh", maxWidth: 480, margin: "0 auto", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 300, display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none", width: "90%", maxWidth: 400 }}>
+      <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 300, display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none", width: "90%", maxWidth: 400 }}>
         {toasts.map(t => (<div key={t.id} style={{ background: t.t === "alerta" ? "#FCEBEB" : t.t === "avis" ? "#FAEEDA" : "#1D9E75", color: t.t === "alerta" ? "#A32D2D" : t.t === "avis" ? "#633806" : "#fff", borderRadius: 12, padding: "12px 18px", fontSize: 14, fontWeight: 500, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>{t.msg}</div>))}
       </div>
       <div style={{ background: "var(--color-background-primary)", borderBottom: "1px solid #f0f0f0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
