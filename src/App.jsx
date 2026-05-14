@@ -432,11 +432,11 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
         <div style={{ fontSize: 13, color: "#E24B4A", marginBottom: 20, textAlign: "center" }}>Aquesta acció és permanent i no es pot desfer.</div>
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Usuari</label>
-          <input value={usr} onChange={e => setUsr(e.target.value)} placeholder="admin" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
+          <input value={usr} onChange={e => setUsr(e.target.value)} placeholder="Escriu l'usuari" autoComplete="off" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Contrasenya</label>
-          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmar()} placeholder="••••••••" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
+          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmar()} placeholder="Escriu la contrasenya" autoComplete="new-password" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "#2a2a3e", color: "#fff", boxSizing: "border-box" }} />
         </div>
         {error && <div style={{ background: "#FCEBEB", borderRadius: 10, padding: "10px", fontSize: 13, color: "#A32D2D", marginBottom: 14, textAlign: "center" }}>Credencials incorrectes</div>}
         <button onClick={confirmar} style={{ width: "100%", padding: "15px", background: "#E24B4A", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>Eliminar definitivament</button>
