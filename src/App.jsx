@@ -794,10 +794,10 @@ function AppInterna() {
   };
 
   const handleNouLot = async vals => {
-    if (!vals.nom || !vals.caps || !vals.pesKg) return;
+    if (!vals.nom || !vals.caps) return;
     const { data: lotData, error: lotErr } = await supabase.from("lots").insert({ granja_id: granjaId, nom: vals.nom, fase, estat: "obert" }).select().single();
     if (lotErr) { toast("Error en crear lot ❌", "alerta"); return; }
-    await supabase.from("entrades").insert({ lot_id: lotData.id, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), origen: vals.origen || "" });
+    await supabase.from("entrades").insert({ lot_id: lotData.id, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg) || 0, origen: vals.origen || "" });
     const newData = await carregarTot(); setData(newData);
     toast("Lot creat ✓"); setModal(null); setLotId(lotData.id);
   };
@@ -1053,7 +1053,7 @@ function AppInterna() {
 
       {modal === "tractament" && <ModalForm title="Registrar tractament" confirmLabel="Guardar tractament" confirmColor="#1A4DB0" fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "medicament", label: "Nom comercial del medicament", type: "text", placeholder: "Ex: Amoxicil·lina 150mg" }, { key: "recepta", label: "Número de recepta", type: "text", placeholder: "Ex: REC-2026-00123" }, { key: "caps", label: "Nombre d'animals tractats (opcional)", type: "number", inputMode: "numeric", placeholder: "Ex: 12" }, { key: "identificacio", label: "Identificació dels animals", type: "text", placeholder: "Corral infermeria", default: "Corral infermeria" }]} onConfirm={handleTractament} onCancel={() => setModal(null)} />}
 
-      {modal === "nouLot" && <ModalForm title="Nou lot" confirmLabel="Crear lot" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom del lot", type: "text", placeholder: "Ex: LT150526S3", default: "L" + (fase === "transicio" ? "T" : fase === "preengreix" ? "P" : "E") + TODAY.slice(8,10) + TODAY.slice(5,7) + TODAY.slice(2,4) + "S" }, { key: "data", label: "Data entrada", type: "date", default: TODAY }, { key: "caps", label: "Caps d'entrada", type: "number", inputMode: "numeric" }, { key: "pesKg", label: "Pes total entrada (kg)", type: "number", inputMode: "decimal" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]} onConfirm={handleNouLot} onCancel={() => setModal(null)} />}
+      {modal === "nouLot" && <ModalForm title="Nou lot" confirmLabel="Crear lot" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom del lot", type: "text", placeholder: "Ex: LT150526S3", default: "L" + (fase === "transicio" ? "T" : fase === "preengreix" ? "P" : "E") + TODAY.slice(8,10) + TODAY.slice(5,7) + TODAY.slice(2,4) + "S" }, { key: "data", label: "Data entrada", type: "date", default: TODAY }, { key: "caps", label: "Caps d'entrada", type: "number", inputMode: "numeric" }, { key: "pesKg", label: "Pes total entrada (kg) — opcional", type: "number", inputMode: "decimal" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]} onConfirm={handleNouLot} onCancel={() => setModal(null)} />}
 
       {modal === "editarEntrada" && editantEntrada && <ModalForm title="Editar entrada" confirmLabel="Guardar canvis" confirmColor={fc.color} capsActuals={editantEntrada.caps}
         fields={[{ key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesKg", label: "Pes total (kg)", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
