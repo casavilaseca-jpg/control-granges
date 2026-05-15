@@ -224,10 +224,30 @@ function PantallaExportacio({ data }) {
 }
 
 // ── Calculadora pesada ─────────────────────────────────────────────────────
+const PESADA_KEY = "pesada_draft";
 function CalculadoraPesada({ onConfirm, onCancel, capsTotal }) {
-  const [viatges, setViatges] = useState([{ id: 1, brut: "", tara: "", caps: "" }]);
-  const [modePes, setModePes] = useState("viatge");
-  const [capsPerMostra, setCapsPerMostra] = useState(capsTotal ? String(capsTotal) : "");
+  const [viatges, setViatges] = useState(() => {
+    try { const s = JSON.parse(localStorage.getItem(PESADA_KEY)); if (s?.viatges?.length) return s.viatges; } catch {}
+    return [{ id: 1, brut: "", tara: "", caps: "" }];
+  });
+  const [modePes, setModePes] = useState(() => {
+    try { const s = JSON.parse(localStorage.getItem(PESADA_KEY)); if (s?.modePes) return s.modePes; } catch {}
+    return "viatge";
+  });
+  const [capsPerMostra, setCapsPerMostra] = useState(() => {
+    try { const s = JSON.parse(localStorage.getItem(PESADA_KEY)); if (s?.capsPerMostra) return s.capsPerMostra; } catch {}
+    return capsTotal ? String(capsTotal) : "";
+  });
+  const [recuperat, setRecuperat] = useState(() => {
+    try { const s = JSON.parse(localStorage.getItem(PESADA_KEY)); return !!(s?.viatges?.length && s.viatges.some(v => v.brut)); } catch {}
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(PESADA_KEY, JSON.stringify({ viatges, modePes, capsPerMostra }));
+  }, [viatges, modePes, capsPerMostra]);
+
+  const neteja = () => localStorage.removeItem(PESADA_KEY);
   const addV = () => setViatges(v => [...v, { id: Date.now(), brut: "", tara: "", caps: "" }]);
   const updV = (id, k, val) => setViatges(v => v.map(x => x.id !== id ? x : { ...x, [k]: val }));
   const delV = id => setViatges(v => v.filter(x => x.id !== id));
@@ -246,7 +266,17 @@ function CalculadoraPesada({ onConfirm, onCancel, capsTotal }) {
       <div style={{ background: "#1a1a2e", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "92vh", overflowY: "auto" }}>
         <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 14px" }} />
         <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>⚖️ Calculadora de pesada</div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 14 }}>Anota cada viatge. El pes net es calcula sol.</div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: recuperat ? 8 : 14 }}>Anota cada viatge. El pes net es calcula sol.</div>
+        {recuperat && (
+          <div style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 18 }}>🔄</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#f59e0b" }}>Pesada recuperada</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>S'han recuperat els viatges anteriors.</div>
+            </div>
+            <button onClick={() => { setViatges([{ id: Date.now(), brut: "", tara: "", caps: "" }]); setRecuperat(false); }} style={{ marginLeft: "auto", border: "none", background: "transparent", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer", padding: "4px 8px" }}>Descartar</button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           {[["viatge", "Pesada completa"], ["mostra", "Per mostreig"]].map(([k, t]) => (
             <button key={k} onClick={() => setModePes(k)} style={{ flex: 1, padding: "10px", border: `1.5px solid ${modePes === k ? "#1D9E75" : "#444"}`, borderRadius: 12, background: modePes === k ? "rgba(29,158,117,0.2)" : "transparent", color: modePes === k ? "#1D9E75" : "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t}</button>
@@ -286,8 +316,8 @@ function CalculadoraPesada({ onConfirm, onCancel, capsTotal }) {
             </div>
           </div>
         )}
-        <button onClick={() => { if (!pesNet) return; onConfirm({ pesKg: pesFinal.toFixed(0), caps: capsFinals || "" }); }} style={{ width: "100%", padding: "15px", background: "#1D9E75", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10, opacity: pesNet > 0 ? 1 : 0.4 }}>Usar aquests valors</button>
-        <button onClick={onCancel} style={{ width: "100%", padding: "13px", background: "transparent", border: "none", fontSize: 15, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>Cancel·lar</button>
+        <button onClick={() => { if (!pesNet) return; neteja(); onConfirm({ pesKg: pesFinal.toFixed(0), caps: capsFinals || "" }); }} style={{ width: "100%", padding: "15px", background: "#1D9E75", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10, opacity: pesNet > 0 ? 1 : 0.4 }}>Usar aquests valors</button>
+        <button onClick={() => { neteja(); onCancel(); }} style={{ width: "100%", padding: "13px", background: "transparent", border: "none", fontSize: 15, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>Cancel·lar</button>
       </div>
     </div>
   );
