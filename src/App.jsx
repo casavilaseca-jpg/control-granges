@@ -447,6 +447,7 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
   const [pesDes, setPesDes] = useState("");
   const [desantLot, setDesantLot] = useState(false);
   const [desant, setDesant] = useState(false);
+  const [mostraPesada, setMostraPesada] = useState(false);
 
   const totalTruges = truges.filter(t => parseInt(t.garrins) > 0).length;
   const totalGarrins = truges.reduce((s, t) => s + (parseInt(t.garrins) || 0), 0);
@@ -525,7 +526,7 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
     const tT = garArr.filter(g => g > 0).length;
     const tG = garArr.reduce((s, g) => s + (g || 0), 0);
     const mit = tT > 0 ? (tG / tT).toFixed(1) : "—";
-    return (
+    return (<>
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
         <div style={{ padding: "12px 16px 8px" }}>
           <button onClick={() => { setVista("llista"); setDesantLot(false); }} style={{ border: "none", background: "transparent", fontSize: 13, color: fc.color, padding: "0 0 6px", cursor: "pointer" }}>← Desmamats</button>
@@ -580,7 +581,11 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Pes total entrada (kg) — opcional</label>
-                <input type="number" inputMode="decimal" value={pesDes} onChange={e => setPesDes(e.target.value)} placeholder="Deixa buit si no disponible" style={inp} />
+                <button onClick={() => setMostraPesada(true)} style={{ width: "100%", padding: "13px", border: "2px solid #1D9E75", borderRadius: 12, background: "rgba(29,158,117,0.08)", color: "#1D9E75", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>⚖️</span> Calculadora de pesada
+                </button>
+                <input type="number" inputMode="decimal" value={pesDes} onChange={e => setPesDes(e.target.value)} placeholder="O escriu el pes directament (kg)" style={inp} />
+                {pesDes && tG > 0 && <div style={{ fontSize: 12, color: "#1D9E75", marginTop: 4, fontWeight: 600 }}>Pes mig: {(parseFloat(pesDes) / tG).toFixed(1)} kg/garri</div>}
               </div>
               <button onClick={async () => {
                 if (!nomLot || !granjaDestiId) { toast("Omple el nom i la granja", "avis"); return; }
@@ -595,7 +600,8 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
           )}
         </div>
       </div>
-    );
+      {mostraPesada && <CalculadoraPesada capsTotal={tG} onCancel={() => setMostraPesada(false)} onConfirm={({ pesKg }) => { setPesDes(pesKg); setMostraPesada(false); }} />}
+    </>);
   }
 
   return (
