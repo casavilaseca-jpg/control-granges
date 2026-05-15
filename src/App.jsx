@@ -209,7 +209,7 @@ function PantallaExportacio({ data }) {
       <button onClick={() => setPreview(v => !v)} style={{ width: "100%", padding: "11px", border: "1.5px solid #ddd", borderRadius: 12, background: "transparent", fontSize: 13, color: "#555", cursor: "pointer", marginBottom: 10 }}>
         {preview ? "▲ Amagar previsualització" : "▼ Previsualitzar dades"}
       </button>
-      {preview && <div style={{ background: "var(--modal-bg)", borderRadius: 12, padding: "12px", marginBottom: 14, overflowX: "auto" }}><pre style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", margin: 0, whiteSpace: "pre", fontFamily: "monospace" }}>{lines.slice(0, 40).join("\n")}{lines.length > 40 ? "\n... i " + (lines.length - 40) + " línies més" : ""}</pre></div>}
+      {preview && <div style={{ background: "#1e293b", borderRadius: 12, padding: "12px", marginBottom: 14, overflowX: "auto" }}><pre style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", margin: 0, whiteSpace: "pre", fontFamily: "monospace" }}>{lines.slice(0, 40).join("\n")}{lines.length > 40 ? "\n... i " + (lines.length - 40) + " línies més" : ""}</pre></div>}
       <button onClick={() => downloadCsv(csvStr, "granges_" + TODAY + ".csv")} disabled={filtFases.length === 0 || filtTipus.length === 0}
         style={{ width: "100%", padding: "16px", background: filtFases.length > 0 && filtTipus.length > 0 ? "#1D9E75" : "#ccc", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <span style={{ fontSize: 20 }}>⬇️</span> Descarregar CSV
@@ -300,8 +300,8 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
   const ambPes = fields.some(f => f.key === "pesKg");
   return (<>
     {mostraPesada && <CalculadoraPesada capsTotal={parseInt(vals.caps) || capsActuals || 0} onCancel={() => setMostraPesada(false)} onConfirm={({ pesKg, caps }) => { setVals(v => ({ ...v, pesKg, ...(caps ? { caps } : {}) })); setMostraPesada(false); }} />}
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.6)" }}>
-      <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.75)" }}>
+      <div style={{ background: "#1e293b", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 16px" }} />
         <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 16, color: "#fff" }}>{title}</div>
         {ambPes && (
@@ -426,7 +426,7 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 250, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.7)" }}>
-      <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
+      <div style={{ background: "#1e293b", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
         <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 20px" }} />
         <div style={{ fontSize: 22, marginBottom: 6, textAlign: "center" }}>🗑️</div>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: "#fff", textAlign: "center" }}>Eliminar {tipusLabel}</div>
@@ -716,7 +716,7 @@ function AppInterna() {
   };
 
   if (carregant) return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--modal-bg)" }}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#1e293b" }}>
       <div style={{ fontSize: 52, marginBottom: 16 }}>🐷</div>
       <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>Carregant dades...</div>
     </div>
@@ -790,8 +790,8 @@ function AppInterna() {
         const fd = sortidaPendent.faseDesti;
         const fcDesti = FASES[fd];
         return (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.6)" }}>
-            <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.75)" }}>
+            <div style={{ background: "#1e293b", borderRadius: "20px 20px 0 0", padding: "20px 16px 32px", maxHeight: "90vh", overflowY: "auto" }}>
               <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 16px" }} />
               <div style={{ fontSize: 11, fontWeight: 600, color: fcDesti.color, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Flux automàtic {fcDesti.emoji}</div>
               <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Crear lot de {fcDesti.label}</div>
@@ -821,8 +821,8 @@ function AppInterna() {
       })()}
 
       {confirmTancar && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.6)" }}>
-          <div style={{ background: "var(--modal-bg)", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.75)" }}>
+          <div style={{ background: "#1e293b", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
             <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 20px" }} />
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "#fff" }}>Tancar lot?</div>
             <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", marginBottom: 24 }}>Un cop tancat no es podran afegir més registres al lot.</div>
