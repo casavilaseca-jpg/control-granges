@@ -188,7 +188,7 @@ function PantallaExportacio({ data }) {
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Fase</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {Object.values(FASES).map(f => <button key={f.key} onClick={() => toggleFase(f.key)} style={pill(filtFases.includes(f.key), f.color)}>{f.emoji} {f.label}</button>)}
+          {Object.values(FASES).filter(f => f.key !== "desmamats").map(f => <button key={f.key} onClick={() => toggleFase(f.key)} style={pill(filtFases.includes(f.key), f.color)}>{f.emoji} {f.label}</button>)}
         </div>
       </div>
       <div style={{ marginBottom: 18 }}>
