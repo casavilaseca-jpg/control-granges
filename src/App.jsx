@@ -365,7 +365,7 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
 
 // ── Alertes ────────────────────────────────────────────────────────────────
 function PantallaAlertes({ data, onLotClick, dismissed, onDismiss }) {
-  const totes = Object.entries(data).flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
+  const totes = Object.entries(data).filter(([f]) => f !== "desmamats").flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
   const noves = totes.filter(a => !dismissed.has(`${a.fase}-${a.granja}-${a.lot}-${a.regla}`));
   return (
     <div style={{ padding: "16px 12px", overflowY: "auto", flex: 1 }}>
@@ -729,12 +729,12 @@ function AppInterna() {
   const stats = lot ? calcStats(lot) : null;
   const fc = FASES[fase];
 
-  const totesAlertes = Object.entries(data).flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
+  const totesAlertes = Object.entries(data).filter(([f]) => f !== "desmamats").flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
   const novesAlertes = totesAlertes.filter(a => !dismissed.has(`${a.fase}-${a.granja}-${a.lot}-${a.regla}`));
   const nCrit = novesAlertes.filter(a => a.nivell === "alerta").length;
 
   const lotsActius = granges.flatMap(g => g.lots.filter(l => l.estat === "obert").map(l => ({ ...l, _gnom: g.nom, _gid: g.id })));
-  const lotsPerDesti = Object.keys(FASES).flatMap(f =>
+  const lotsPerDesti = Object.keys(FASES).filter(f => f !== "desmamats").flatMap(f =>
     (data[f] || []).flatMap(g => g.lots.filter(l => l.estat === "obert" && !(f === fase && g.id === granjaId && l.id === lotId))
       .map(l => ({ value: String(l.id), label: "[" + FASES[f].label + "] " + g.nom + " / " + l.nom })))
   );
