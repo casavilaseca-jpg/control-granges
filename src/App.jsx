@@ -52,6 +52,7 @@ function heatColor(p) {
 const bdg = e => e === "obert" ? { bg: "#e1f5ee", color: "#0f6e56", text: "Obert" } : { bg: "#f1efe8", color: "#5f5e5a", text: "Tancat" };
 
 const FASES = {
+  desmamats:  { key: "desmamats",  label: "Desmamats",   emoji: "🍼", color: "#ec4899", bgLight: "#fdf2f8", colorDark: "#9d174d", pesRang: "0–5 kg" },
   transicio:  { key: "transicio",  label: "Transició",   emoji: "🐣", color: "#6366f1", bgLight: "#eef2ff", colorDark: "#3730a3", pesRang: "5–25 kg" },
   preengreix: { key: "preengreix", label: "Pre-engreix", emoji: "🐖", color: "#f59e0b", bgLight: "#fffbeb", colorDark: "#92400e", pesRang: "25–50 kg" },
   engreix:    { key: "engreix",    label: "Engreix",     emoji: "🐷", color: "#10b981", bgLight: "#ecfdf5", colorDark: "#065f46", pesRang: "50–110 kg" }
@@ -84,15 +85,16 @@ function defaultDesti(fase) {
 
 // ── Supabase DB ────────────────────────────────────────────────────────────
 async function carregarTot() {
-  const [{ data: gDB }, { data: lDB }, { data: eDB }, { data: sDB }, { data: bDB }, { data: tDB }] = await Promise.all([
+  const [{ data: gDB }, { data: lDB }, { data: eDB }, { data: sDB }, { data: bDB }, { data: tDB }, { data: dDB }] = await Promise.all([
     supabase.from("granges").select("*"),
     supabase.from("lots").select("*"),
     supabase.from("entrades").select("*"),
     supabase.from("sortides").select("*"),
     supabase.from("baixes").select("*"),
     supabase.from("tractaments").select("*"),
+    supabase.from("desmamats").select("*").order("created_at", { ascending: false }),
   ]);
-  const result = { transicio: [], preengreix: [], engreix: [] };
+  const result = { transicio: [], preengreix: [], engreix: [], desmamats: dDB || [] };
   for (const g of (gDB || [])) {
     const lots = (lDB || []).filter(l => l.granja_id === g.id).map(l => ({
       id: l.id, nom: l.nom, estat: l.estat,
@@ -432,6 +434,212 @@ function PantallaLogin({ onLogin }) {
   );
 }
 
+// ── Desmamats ──────────────────────────────────────────────────────────────
+function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot, toast }) {
+  const fc = FASES.desmamats;
+  const [vista, setVista] = useState("llista");
+  const [seleccionat, setSeleccionat] = useState(null);
+  const [granja, setGranja] = useState("");
+  const [dataDes, setDataDes] = useState(TODAY);
+  const [truges, setTruges] = useState([{ id: 1, garrins: "" }]);
+  const [nomLot, setNomLot] = useState("");
+  const [granjaDestiId, setGranjaDestiId] = useState("");
+  const [pesDes, setPesDes] = useState("");
+  const [desantLot, setDesantLot] = useState(false);
+  const [desant, setDesant] = useState(false);
+
+  const totalTruges = truges.filter(t => parseInt(t.garrins) > 0).length;
+  const totalGarrins = truges.reduce((s, t) => s + (parseInt(t.garrins) || 0), 0);
+  const mittana = totalTruges > 0 ? (totalGarrins / totalTruges).toFixed(1) : "—";
+
+  const resetNou = () => { setGranja(""); setDataDes(TODAY); setTruges([{ id: 1, garrins: "" }]); };
+  const afegirTruja = () => setTruges(v => [...v, { id: Date.now(), garrins: "" }]);
+  const updTruja = (id, val) => setTruges(v => v.map(t => t.id !== id ? t : { ...t, garrins: val }));
+  const elimTruja = id => setTruges(v => v.length > 1 ? v.filter(t => t.id !== id) : v);
+
+  const guardar = async () => {
+    if (!granja) { toast("Indica la granja", "avis"); return; }
+    if (totalGarrins === 0) { toast("Afegeix almenys un garri", "avis"); return; }
+    setDesant(true);
+    await onGuardar({ granja, data: dataDes, garrins: truges.map(t => parseInt(t.garrins) || 0) });
+    setDesant(false);
+    setVista("llista");
+    resetNou();
+  };
+
+  const inp = { width: "100%", padding: "12px", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 15, background: "#fff", color: "#0f172a", boxSizing: "border-box" };
+
+  if (vista === "nou") return (
+    <div style={{ flex: 1, overflowY: "auto", paddingBottom: 100 }}>
+      <div style={{ padding: "12px 16px 8px" }}>
+        <button onClick={() => { setVista("llista"); resetNou(); }} style={{ border: "none", background: "transparent", fontSize: 13, color: fc.color, padding: "0 0 6px", cursor: "pointer" }}>← Enrere</button>
+        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Nova desmamada</div>
+        <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Anota els garrins per cada truja desmamada.</div>
+      </div>
+      <div style={{ padding: "0 16px" }}>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Data</label>
+          <input type="date" value={dataDes} onChange={e => setDataDes(e.target.value)} style={inp} />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja</label>
+          <input type="text" value={granja} onChange={e => setGranja(e.target.value)} placeholder="Ex: Granja Can Puig" style={inp} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Truges desmamades</label>
+            <span style={{ fontSize: 12, color: "#888" }}>{truges.length} truges</span>
+          </div>
+          {truges.map((t, i) => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: "#aaa", minWidth: 22, textAlign: "right" }}>{i + 1}.</span>
+              <input type="number" inputMode="numeric" min="0" value={t.garrins} onChange={e => updTruja(t.id, e.target.value)} placeholder="Garrins" style={{ ...inp, flex: 1 }} />
+              <span style={{ fontSize: 12, color: "#888", whiteSpace: "nowrap" }}>gar.</span>
+              <button onClick={() => elimTruja(t.id)} style={{ border: "none", background: "transparent", color: "#ddd", fontSize: 22, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+          <button onClick={afegirTruja} style={{ width: "100%", padding: "12px", border: "1.5px dashed #e2e8f0", borderRadius: 12, background: "transparent", fontSize: 14, color: "#888", cursor: "pointer", marginTop: 4 }}>+ Afegir truja</button>
+        </div>
+        {totalGarrins > 0 && (
+          <div style={{ background: fc.bgLight, border: `1px solid ${fc.color}44`, borderRadius: 14, padding: "16px", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: fc.colorDark, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>Resum actual</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center" }}>
+              <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Truges</div><div style={{ fontSize: 22, fontWeight: 700, color: fc.colorDark }}>{totalTruges}</div></div>
+              <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Garrins</div><div style={{ fontSize: 22, fontWeight: 700, color: fc.colorDark }}>{totalGarrins}</div></div>
+              <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Mitj./truja</div><div style={{ fontSize: 22, fontWeight: 700, color: fc.colorDark }}>{mittana}</div></div>
+            </div>
+          </div>
+        )}
+        <button onClick={guardar} disabled={desant} style={{ width: "100%", padding: "15px", background: fc.color, border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", opacity: desant ? 0.6 : 1, marginBottom: 10 }}>
+          {desant ? "Guardant..." : "Guardar desmamada"}
+        </button>
+        <button onClick={() => { setVista("llista"); resetNou(); }} style={{ width: "100%", padding: "13px", background: "transparent", border: "none", fontSize: 15, color: "#888", cursor: "pointer" }}>Cancel·lar</button>
+      </div>
+    </div>
+  );
+
+  if (vista === "detall" && seleccionat) {
+    const rec = registres.find(r => r.id === seleccionat);
+    if (!rec) { setVista("llista"); return null; }
+    const garArr = Array.isArray(rec.garrins) ? rec.garrins : [];
+    const tT = garArr.filter(g => g > 0).length;
+    const tG = garArr.reduce((s, g) => s + (g || 0), 0);
+    const mit = tT > 0 ? (tG / tT).toFixed(1) : "—";
+    return (
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
+        <div style={{ padding: "12px 16px 8px" }}>
+          <button onClick={() => { setVista("llista"); setDesantLot(false); }} style={{ border: "none", background: "transparent", fontSize: 13, color: fc.color, padding: "0 0 6px", cursor: "pointer" }}>← Desmamats</button>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Desmamada</div>
+          <div style={{ fontSize: 13, color: "#888" }}>{rec.granja} · {rec.data}</div>
+        </div>
+        <div style={{ padding: "0 16px" }}>
+          <div style={{ background: fc.bgLight, border: `1px solid ${fc.color}44`, borderRadius: 14, padding: "16px", marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center" }}>
+              <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Truges</div><div style={{ fontSize: 24, fontWeight: 700, color: fc.colorDark }}>{tT}</div></div>
+              <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Garrins</div><div style={{ fontSize: 24, fontWeight: 700, color: fc.colorDark }}>{tG}</div></div>
+              <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Mitj./truja</div><div style={{ fontSize: 24, fontWeight: 700, color: fc.colorDark }}>{mit}</div></div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 10 }}>Detall per truja</div>
+            {garArr.map((g, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff", borderRadius: 10, marginBottom: 6, border: "1px solid #f0f0f0" }}>
+                <span style={{ fontSize: 13, color: "#888" }}>Truja {i + 1}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: g > 0 ? fc.colorDark : "#ccc" }}>{g > 0 ? g + " garrins" : "—"}</span>
+              </div>
+            ))}
+          </div>
+          {rec.lot_id ? (
+            <div style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 14, padding: "16px", textAlign: "center" }}>
+              <div style={{ fontSize: 20, marginBottom: 6 }}>✅</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#065f46" }}>Lot de Transició ja creat</div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Aquests garrins ja estan assignats a un lot de transició.</div>
+            </div>
+          ) : !desantLot ? (
+            <button onClick={() => { setNomLot("LT" + rec.data.slice(8,10) + rec.data.slice(5,7) + rec.data.slice(2,4) + "S"); setGranjaDestiId(""); setPesDes(""); setDesantLot(true); }} style={{ width: "100%", padding: "15px", background: FASES.transicio.color, border: "none", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>{FASES.transicio.emoji}</span> Crear lot de Transició
+            </button>
+          ) : (
+            <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "16px" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 14, color: FASES.transicio.colorDark }}>{FASES.transicio.emoji} Crear lot de Transició</div>
+              <div style={{ background: FASES.transicio.bgLight, borderRadius: 12, padding: "12px 14px", marginBottom: 16, textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "#888", marginBottom: 2 }}>Caps a assignar</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: FASES.transicio.colorDark }}>{tG}</div>
+                <div style={{ fontSize: 12, color: "#888" }}>garrins</div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Nom del lot</label>
+                <input type="text" value={nomLot} onChange={e => setNomLot(e.target.value)} style={inp} />
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja de destí (Transició)</label>
+                <select value={granjaDestiId} onChange={e => setGranjaDestiId(e.target.value)} style={{ ...inp }}>
+                  <option value="">— Selecciona una granja —</option>
+                  {grangesTransicio.map(g => <option key={g.id} value={g.id}>{g.nom}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Pes total entrada (kg) — opcional</label>
+                <input type="number" inputMode="decimal" value={pesDes} onChange={e => setPesDes(e.target.value)} placeholder="Deixa buit si no disponible" style={inp} />
+              </div>
+              <button onClick={async () => {
+                if (!nomLot || !granjaDestiId) { toast("Omple el nom i la granja", "avis"); return; }
+                await onCrearLot({ desmamatsId: rec.id, nomLot, granjaDestiId, totalGarrins: tG, data: rec.data, pesKg: pesDes || "0" });
+                setDesantLot(false);
+                setVista("llista");
+              }} style={{ width: "100%", padding: "15px", background: FASES.transicio.color, border: "none", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>
+                Crear lot 🐣
+              </button>
+              <button onClick={() => setDesantLot(false)} style={{ width: "100%", padding: "13px", background: "transparent", border: "none", fontSize: 14, color: "#888", cursor: "pointer" }}>Enrere</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
+      <div style={{ padding: "12px 16px 8px" }}>
+        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>Desmamats</div>
+        <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Registres de garrins per truja</div>
+      </div>
+      <div style={{ padding: "0 12px" }}>
+        {registres.length === 0 && (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "#aaa" }}>
+            <div style={{ fontSize: 48, marginBottom: 10 }}>🍼</div>
+            <div style={{ fontSize: 15 }}>Cap registre de desmamats</div>
+            <div style={{ fontSize: 13, marginTop: 4 }}>Toca el botó per afegir el primer</div>
+          </div>
+        )}
+        {registres.map(r => {
+          const garArr = Array.isArray(r.garrins) ? r.garrins : [];
+          const tT = garArr.filter(g => g > 0).length;
+          const tG = garArr.reduce((s, g) => s + (g || 0), 0);
+          const mit = tT > 0 ? (tG / tT).toFixed(1) : "—";
+          return (
+            <div key={r.id} onClick={() => { setSeleccionat(r.id); setDesantLot(false); setVista("detall"); }} style={{ background: "#fff", borderRadius: 16, padding: "16px", marginBottom: 10, cursor: "pointer", border: `1.5px solid ${r.lot_id ? "#6ee7b7" : "transparent"}`, boxShadow: "var(--shadow-sm)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{r.granja}</div>
+                {r.lot_id && <span style={{ fontSize: 11, background: "#ecfdf5", color: "#065f46", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>✓ Lot creat</span>}
+              </div>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>{r.data}</div>
+              <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
+                <span style={{ color: fc.colorDark, fontWeight: 600 }}>{tT} truges</span>
+                <span style={{ color: fc.colorDark, fontWeight: 600 }}>{tG} garrins</span>
+                <span style={{ color: "#888" }}>{mit}/truja</span>
+              </div>
+            </div>
+          );
+        })}
+        <button onClick={() => { resetNou(); setVista("nou"); }} style={{ width: "100%", padding: "14px", background: "#fff", border: `1.5px dashed ${fc.color}`, borderRadius: 14, fontSize: 15, fontWeight: 600, color: fc.colorDark, cursor: "pointer" }}>
+          + Nova desmamada
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App() {
   const [logat, setLogat] = useState(false);
@@ -480,7 +688,7 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
 
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
-  const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [] });
+  const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [], desmamats: [] });
   const [carregant, setCarregant] = useState(true);
   const [nav, setNav] = useState("lots");
   const [granjaId, setGranjaId] = useState(null);
@@ -499,7 +707,7 @@ function AppInterna() {
   }, []);
 
   useEffect(() => {
-    const taules = ["granges", "lots", "entrades", "sortides", "baixes", "tractaments"];
+    const taules = ["granges", "lots", "entrades", "sortides", "baixes", "tractaments", "desmamats"];
     const subs = taules.map(t =>
       supabase.channel("rt_" + t)
         .on("postgres_changes", { event: "*", schema: "public", table: t }, () => {
@@ -515,7 +723,7 @@ function AppInterna() {
     setTimeout(() => setToasts(ts => ts.filter(x => x.id !== id)), 3500);
   }, []);
 
-  const granges = data[fase] || [];
+  const granges = (fase !== "desmamats" ? data[fase] : []) || [];
   const granja = granges.find(g => g.id === granjaId);
   const lot = granja?.lots.find(l => l.id === lotId);
   const stats = lot ? calcStats(lot) : null;
@@ -598,6 +806,24 @@ function AppInterna() {
   const handleTancarLot = async () => {
     await supabase.from("lots").update({ estat: "tancat" }).eq("id", lotId);
     setConfirmTancar(false); toast("Lot tancat");
+  };
+
+  const handleGuardarDesmamats = async ({ granja, data: dataDes, garrins }) => {
+    const { error } = await supabase.from("desmamats").insert({ granja, data: dataDes, garrins });
+    if (error) { toast("Error en guardar ❌", "alerta"); return; }
+    const newData = await carregarTot(); setData(newData);
+    toast("Desmamada guardada ✓");
+  };
+
+  const handleCrearLotFromDesmamats = async ({ desmamatsId, nomLot, granjaDestiId, totalGarrins, data: dataDes, pesKg }) => {
+    const { data: lotData, error: lotErr } = await supabase.from("lots")
+      .insert({ granja_id: granjaDestiId, nom: nomLot, fase: "transicio", estat: "obert" })
+      .select().single();
+    if (lotErr) { toast("Error en crear lot ❌", "alerta"); return; }
+    await supabase.from("entrades").insert({ lot_id: lotData.id, data: dataDes, caps: totalGarrins, pes_kg: parseFloat(pesKg) || 0, origen: "Desmamats" });
+    await supabase.from("desmamats").update({ lot_id: lotData.id }).eq("id", desmamatsId);
+    const newData = await carregarTot(); setData(newData);
+    toast("Lot de Transició creat! 🐣");
   };
 
   // ── Detall lot ─────────────────────────────────────────────────────────
@@ -782,8 +1008,9 @@ function AppInterna() {
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={() => showFaseMenu && setShowFaseMenu(false)}>
         {nav === "alertes" && <PantallaAlertes data={data} dismissed={dismissed} onDismiss={a => setDismissed(s => new Set([...s, `${a.fase}-${a.granja}-${a.lot}-${a.regla}`]))} onLotClick={a => { const g = (data[a.fase] || []).find(g => g.nom === a.granja); if (g) { setFase(a.fase); setGranjaId(g.id); const l = g.lots.find(l => l.nom === a.lot); if (l) { setLotId(l.id); setTabLot("resum"); setNav("lots"); } } }} />}
         {nav === "global" && <VistaGlobal />}
-        {nav === "lots" && !lotId && <LlistaLots />}
-        {nav === "lots" && lotId && <LotDetall />}
+        {nav === "lots" && !lotId && fase !== "desmamats" && <LlistaLots />}
+        {nav === "lots" && !lotId && fase === "desmamats" && <PantallaDesmamats registres={data.desmamats || []} grangesTransicio={data.transicio || []} onGuardar={handleGuardarDesmamats} onCrearLot={handleCrearLotFromDesmamats} toast={toast} />}
+        {nav === "lots" && lotId && fase !== "desmamats" && <LotDetall />}
         {nav === "exportacio" && <PantallaExportacio data={data} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
