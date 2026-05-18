@@ -869,6 +869,13 @@ function AppInterna() {
     setConfirmTancar(false); toast("Lot tancat");
   };
 
+  const handleEditarLot = async vals => {
+    if (!vals.nom) return;
+    await supabase.from("lots").update({ nom: vals.nom, gmd_teoric: parseInt(vals.gmdTeoric) || null }).eq("id", lotId);
+    const newData = await carregarTot(); setData(newData);
+    toast("Lot actualitzat ✓"); setModal(null);
+  };
+
   const handleEditarEntrada = async vals => {
     if (!vals.caps) return;
     await supabase.from("entrades").update({ caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg) || 0 }).eq("id", editantEntrada.id);
@@ -905,7 +912,10 @@ function AppInterna() {
         <div style={{ padding: "12px 16px 0" }}>
           <button onClick={() => setLotId(null)} style={{ border: "none", background: "transparent", fontSize: 13, color: fc.color, padding: "0 0 8px", cursor: "pointer" }}>← {granja.nom}</button>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{lot.nom}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{lot.nom}</div>
+              {lot.estat === "obert" && <button onClick={() => setModal("editarLot")} style={{ border: "none", background: "transparent", color: "#bbb", fontSize: 14, cursor: "pointer", padding: 0 }} title="Editar lot">✏️</button>}
+            </div>
             <span style={{ fontSize: 12, background: bdg(lot.estat).bg, color: bdg(lot.estat).color, borderRadius: 8, padding: "3px 10px" }}>{bdg(lot.estat).text}</span>
           </div>
           <div style={{ fontSize: 13, color: "#888", marginBottom: 12 }}>{fc.emoji} {fc.label} · {stats.die} dies actius</div>
@@ -1113,6 +1123,10 @@ function AppInterna() {
       {modal === "tractament" && <ModalForm title="Registrar tractament" confirmLabel="Guardar tractament" confirmColor="#1A4DB0" fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "medicament", label: "Nom comercial del medicament", type: "text", placeholder: "Ex: Amoxicil·lina 150mg" }, { key: "recepta", label: "Número de recepta", type: "text", placeholder: "Ex: REC-2026-00123" }, { key: "caps", label: "Nombre d'animals tractats (opcional)", type: "number", inputMode: "numeric", placeholder: "Ex: 12" }, { key: "identificacio", label: "Identificació dels animals", type: "text", placeholder: "Corral infermeria", default: "Corral infermeria" }]} onConfirm={handleTractament} onCancel={() => setModal(null)} />}
 
       {modal === "nouLot" && <ModalForm title="Nou lot" confirmLabel="Crear lot" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom del lot", type: "text", placeholder: "Ex: LT150526S3", default: "L" + (fase === "transicio" ? "T" : fase === "preengreix" ? "P" : "E") + TODAY.slice(8,10) + TODAY.slice(5,7) + TODAY.slice(2,4) + "S" }, { key: "data", label: "Data entrada", type: "date", default: TODAY }, { key: "caps", label: "Caps d'entrada", type: "number", inputMode: "numeric" }, { key: "pesKg", label: "Pes total entrada (kg) — opcional", type: "number", inputMode: "decimal" }, { key: "gmdTeoric", label: "GMD teòric (g/dia) — opcional", type: "number", inputMode: "numeric", placeholder: "Ex: 350" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]} onConfirm={handleNouLot} onCancel={() => setModal(null)} />}
+
+      {modal === "editarLot" && lot && <ModalForm title="Editar lot" confirmLabel="Guardar canvis" confirmColor={fc.color}
+        fields={[{ key: "nom", label: "Nom del lot", type: "text", default: lot.nom }, { key: "gmdTeoric", label: "GMD teòric (g/dia)", type: "number", inputMode: "numeric", placeholder: "Ex: 350", default: lot.gmdTeoric ? String(lot.gmdTeoric) : "" }]}
+        onConfirm={handleEditarLot} onCancel={() => setModal(null)} />}
 
       {modal === "editarEntrada" && editantEntrada && <ModalForm title="Editar entrada" confirmLabel="Guardar canvis" confirmColor={fc.color} capsActuals={editantEntrada.caps}
         fields={[{ key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesKg", label: "Pes total (kg)", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
