@@ -51,6 +51,60 @@ function heatColor(p) {
 }
 const bdg = e => e === "obert" ? { bg: "#e1f5ee", color: "#0f6e56", text: "Obert" } : { bg: "#f1efe8", color: "#5f5e5a", text: "Tancat" };
 
+function MiniGraficBaixes({ lot, color }) {
+  if (!lot.baixes.length) return null;
+  const sorted = [...lot.baixes].sort((a, b) => a.data.localeCompare(b.data));
+  const d0 = lot.entrades.length > 0
+    ? lot.entrades.reduce((m, e) => e.data < m ? e.data : m, lot.entrades[0].data)
+    : sorted[0].data;
+  const dEnd = lot.estat === "tancat" && lot.sortides.length > 0
+    ? lot.sortides.reduce((m, s) => s.data > m ? s.data : m, lot.sortides[0].data)
+    : TODAY;
+  const totalDies = Math.max(dias(d0, dEnd), 1);
+  const maxB = sorted.reduce((s, b) => s + b.caps, 0);
+  if (maxB === 0) return null;
+
+  const W = 300; const H = 44; const pad = 2;
+  const tx = d => pad + Math.min(d, totalDies) / totalDies * (W - 2 * pad);
+  const ty = v => H - pad - (v / maxB) * (H - 2 * pad);
+
+  let acum = 0;
+  const pts = [[0, 0]];
+  for (const b of sorted) {
+    const d = dias(d0, b.data);
+    pts.push([d, acum]);
+    acum += b.caps;
+    pts.push([d, acum]);
+  }
+  pts.push([totalDies, acum]);
+
+  const line = pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ");
+  const area = `${tx(0)},${H} ` + pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ") + ` ${tx(totalDies)},${H}`;
+  const uid = "g" + lot.id.replace(/-/g, "").slice(0, 8);
+
+  return (
+    <div style={{ marginTop: 10, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
+      <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
+        <span>Baixes acumulades</span>
+        <span style={{ fontWeight: 600, color }}>{maxB} total</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 44, display: "block" }} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.03" />
+          </linearGradient>
+        </defs>
+        <polygon points={area} fill={`url(#${uid})`} />
+        <polyline points={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#ccc", marginTop: 1 }}>
+        <span>Dia 0</span><span>Dia {totalDies}</span>
+      </div>
+    </div>
+  );
+}
+
 const FASES = {
   desmamats:  { key: "desmamats",  label: "Desmamats",   emoji: "🍼", color: "#ec4899", bgLight: "#fdf2f8", colorDark: "#9d174d", pesRang: "0–5 kg" },
   transicio:  { key: "transicio",  label: "Transició",   emoji: "🐣", color: "#6366f1", bgLight: "#eef2ff", colorDark: "#3730a3", pesRang: "5–25 kg" },
@@ -945,6 +999,7 @@ function AppInterna() {
             </div>
             <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#555", marginBottom: 8 }}><span>🐷 {st.tCE} caps</span><span>📅 {st.die} dies</span><span>📉 {st.tB} baixes</span></div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ background: hc.bg, color: hc.color, borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }}>Mort. {st.pct}%</span><span style={{ fontSize: 13, color: "#888" }}>{st.cap} caps actuals</span></div>
+            <MiniGraficBaixes lot={l} color={fc.color} />
           </div>
           <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
             <button onClick={e => { e.stopPropagation(); setConfirmarEliminar({ tipus: "lot", id: l.id, nom: l.nom }); }} style={{ border: "none", background: "transparent", color: "#ccc", fontSize: 18, cursor: "pointer", padding: "2px 6px" }} title="Eliminar lot">🗑️</button>
