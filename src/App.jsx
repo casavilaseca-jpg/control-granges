@@ -151,7 +151,7 @@ async function carregarTot() {
   const result = { transicio: [], preengreix: [], engreix: [], desmamats: dDB || [] };
   for (const g of (gDB || [])) {
     const lots = (lDB || []).filter(l => l.granja_id === g.id).map(l => ({
-      id: l.id, nom: l.nom, estat: l.estat,
+      id: l.id, nom: l.nom, estat: l.estat, gmdTeoric: l.gmd_teoric || null,
       entrades:    (eDB || []).filter(e => e.lot_id === l.id).map(e => ({ id: e.id, data: e.data, caps: e.caps, pesKg: e.pes_kg, origen: e.origen })),
       sortides:    (sDB || []).filter(s => s.lot_id === l.id).map(s => ({ id: s.id, data: s.data, caps: s.caps, pesKg: s.pes_kg, tipusDesti: s.tipus_desti, desti: s.desti })),
       baixes:      (bDB || []).filter(b => b.lot_id === l.id).map(b => ({ id: b.id, data: b.data, caps: b.caps, causa: b.causa })),
@@ -849,7 +849,7 @@ function AppInterna() {
 
   const handleNouLot = async vals => {
     if (!vals.nom || !vals.caps) return;
-    const { data: lotData, error: lotErr } = await supabase.from("lots").insert({ granja_id: granjaId, nom: vals.nom, fase, estat: "obert" }).select().single();
+    const { data: lotData, error: lotErr } = await supabase.from("lots").insert({ granja_id: granjaId, nom: vals.nom, fase, estat: "obert", gmd_teoric: parseInt(vals.gmdTeoric) || null }).select().single();
     if (lotErr) { toast("Error en crear lot ❌", "alerta"); return; }
     await supabase.from("entrades").insert({ lot_id: lotData.id, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg) || 0, origen: vals.origen || "" });
     const newData = await carregarTot(); setData(newData);
@@ -917,8 +917,12 @@ function AppInterna() {
           </div>
         ))}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "0 12px 12px" }}>
-          {[{ lbl: "Caps actuals", val: stats.cap, col: "#378ADD" }, { lbl: "% Mortalitat", val: stats.pct + "%", col: hc.color === "#fff" ? "#E24B4A" : hc.color, bg: hc.bg }, { lbl: "Caps entrats", val: stats.tCE, col: "#1D9E75" }, { lbl: "Baixes", val: stats.tB, col: "#E24B4A" }, { lbl: "Caps sortits", val: stats.tCS, col: "#BA7517" }, { lbl: "Dies actius", val: stats.die, col: "#7F77DD" }, ...(stats.gmd ? [{ lbl: "GMD", val: stats.gmd + "g", col: "#0F6E56" }] : []), ...(stats.gKg ? [{ lbl: "Guany/cap", val: stats.gKg + " kg", col: "#1D9E75" }] : [])].map(({ lbl, val, col, bg }) => (
-            <div key={lbl} style={{ background: bg || "var(--color-background-secondary)", borderRadius: 14, padding: "14px", borderLeft: "4px solid " + col }}>
+          {(() => {
+            const pesMigE = stats.tCE > 0 && stats.tPE > 0 ? stats.tPE / stats.tCE : null;
+            const pesTeoricPorc = lot.gmdTeoric && pesMigE ? parseFloat((pesMigE + lot.gmdTeoric * stats.die / 1000).toFixed(1)) : null;
+            return [{ lbl: "Caps actuals", val: stats.cap, col: "#378ADD" }, { lbl: "% Mortalitat", val: stats.pct + "%", col: hc.color === "#fff" ? "#E24B4A" : hc.color, bg: hc.bg }, { lbl: "Caps entrats", val: stats.tCE, col: "#1D9E75" }, { lbl: "Baixes", val: stats.tB, col: "#E24B4A" }, { lbl: "Caps sortits", val: stats.tCS, col: "#BA7517" }, { lbl: "Dies actius", val: stats.die, col: "#7F77DD" }, ...(pesTeoricPorc ? [{ lbl: "Pes teòric/porc", val: pesTeoricPorc + " kg", col: "#ec4899", title: `GMD teòric: ${lot.gmdTeoric} g/dia` }] : []), ...(stats.gmd ? [{ lbl: "GMD real", val: stats.gmd + "g", col: "#0F6E56" }] : []), ...(stats.gKg ? [{ lbl: "Guany/cap", val: stats.gKg + " kg", col: "#1D9E75" }] : [])];
+          })().map(({ lbl, val, col, bg, title }) => (
+            <div key={lbl} title={title || ""} style={{ background: bg || "var(--color-background-secondary)", borderRadius: 14, padding: "14px", borderLeft: "4px solid " + col }}>
               <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{lbl}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: col }}>{val}</div>
             </div>
@@ -1108,7 +1112,7 @@ function AppInterna() {
 
       {modal === "tractament" && <ModalForm title="Registrar tractament" confirmLabel="Guardar tractament" confirmColor="#1A4DB0" fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "medicament", label: "Nom comercial del medicament", type: "text", placeholder: "Ex: Amoxicil·lina 150mg" }, { key: "recepta", label: "Número de recepta", type: "text", placeholder: "Ex: REC-2026-00123" }, { key: "caps", label: "Nombre d'animals tractats (opcional)", type: "number", inputMode: "numeric", placeholder: "Ex: 12" }, { key: "identificacio", label: "Identificació dels animals", type: "text", placeholder: "Corral infermeria", default: "Corral infermeria" }]} onConfirm={handleTractament} onCancel={() => setModal(null)} />}
 
-      {modal === "nouLot" && <ModalForm title="Nou lot" confirmLabel="Crear lot" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom del lot", type: "text", placeholder: "Ex: LT150526S3", default: "L" + (fase === "transicio" ? "T" : fase === "preengreix" ? "P" : "E") + TODAY.slice(8,10) + TODAY.slice(5,7) + TODAY.slice(2,4) + "S" }, { key: "data", label: "Data entrada", type: "date", default: TODAY }, { key: "caps", label: "Caps d'entrada", type: "number", inputMode: "numeric" }, { key: "pesKg", label: "Pes total entrada (kg) — opcional", type: "number", inputMode: "decimal" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]} onConfirm={handleNouLot} onCancel={() => setModal(null)} />}
+      {modal === "nouLot" && <ModalForm title="Nou lot" confirmLabel="Crear lot" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom del lot", type: "text", placeholder: "Ex: LT150526S3", default: "L" + (fase === "transicio" ? "T" : fase === "preengreix" ? "P" : "E") + TODAY.slice(8,10) + TODAY.slice(5,7) + TODAY.slice(2,4) + "S" }, { key: "data", label: "Data entrada", type: "date", default: TODAY }, { key: "caps", label: "Caps d'entrada", type: "number", inputMode: "numeric" }, { key: "pesKg", label: "Pes total entrada (kg) — opcional", type: "number", inputMode: "decimal" }, { key: "gmdTeoric", label: "GMD teòric (g/dia) — opcional", type: "number", inputMode: "numeric", placeholder: "Ex: 350" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]} onConfirm={handleNouLot} onCancel={() => setModal(null)} />}
 
       {modal === "editarEntrada" && editantEntrada && <ModalForm title="Editar entrada" confirmLabel="Guardar canvis" confirmColor={fc.color} capsActuals={editantEntrada.caps}
         fields={[{ key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesKg", label: "Pes total (kg)", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
