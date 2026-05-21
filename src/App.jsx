@@ -417,6 +417,114 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
   </>);
 }
 
+// ── Traçabilitat ───────────────────────────────────────────────────────────
+function PantallaTracabilitat({ data }) {
+  const fases = ["transicio", "preengreix", "engreix"];
+  const tots = fases.flatMap(f =>
+    (data[f] || []).flatMap(g =>
+      g.lots.map(l => ({ ...l, fase: f, granjaNom: g.nom }))
+    )
+  ).sort((a, b) => {
+    const da = a.entrades[0]?.data || "";
+    const db = b.entrades[0]?.data || "";
+    return da.localeCompare(db);
+  });
+
+  const labelDesti = (s) => {
+    if (!s) return null;
+    if (s.tipusDesti === "escorxador") return "🏭 " + (s.desti || "Escorxador");
+    if (s.tipusDesti === "nouPreengreix") return "→ Nou lot Pre-engreix";
+    if (s.tipusDesti === "nouEngreix") return "→ Nou lot Engreix";
+    if (s.tipusDesti === "lot") return "→ " + (s.desti || "Lot existent");
+    return "→ " + (s.desti || s.tipusDesti || "Altre");
+  };
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
+      <div style={{ padding: "12px 16px 12px" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Traçabilitat</div>
+        <div style={{ fontSize: 13, color: "#888" }}>Flux complet dels lots entre fases</div>
+      </div>
+
+      {tots.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa" }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>🔗</div>
+          <div style={{ fontSize: 15 }}>Cap lot registrat</div>
+        </div>
+      )}
+
+      <div style={{ padding: "0 14px" }}>
+        {tots.map((lot, idx) => {
+          const fc = FASES[lot.fase];
+          const caps = lot.entrades.reduce((s, e) => s + e.caps, 0);
+          const baixes = lot.baixes.reduce((s, b) => s + b.caps, 0);
+          const sortides = lot.sortides;
+          const capsSortits = sortides.reduce((s, s2) => s + s2.caps, 0);
+          const capsActuals = caps - baixes - capsSortits;
+          const dataEntrada = lot.entrades[0]?.data || "";
+          const origen = lot.entrades[0]?.origen || null;
+          const estaObert = lot.estat === "obert";
+          const prev = tots[idx - 1];
+          const showFaseDivider = idx === 0 || prev.fase !== lot.fase;
+
+          return (
+            <div key={lot.id}>
+              {showFaseDivider && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 10px" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: fc.bgLight, border: `2px solid ${fc.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{fc.emoji}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: fc.colorDark }}>{fc.label}</div>
+                  <div style={{ flex: 1, height: 1, background: fc.color + "33" }} />
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 28, flexShrink: 0 }}>
+                  <div style={{ width: 2, flex: 1, background: origen ? fc.color + "55" : "transparent", minHeight: 12 }} />
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: fc.color, flexShrink: 0 }} />
+                  <div style={{ width: 2, flex: 1, background: sortides.length > 0 ? fc.color + "55" : estaObert ? "#e2e8f0" : "transparent", minHeight: 12 }} />
+                </div>
+
+                <div style={{ flex: 1, marginBottom: 8 }}>
+                  {origen && (
+                    <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span>📦</span><span>{origen}</span>
+                    </div>
+                  )}
+                  <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", border: `1.5px solid ${estaObert ? fc.color + "55" : "#e2e8f0"}`, boxShadow: "var(--shadow-sm)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{lot.nom}</div>
+                        <div style={{ fontSize: 12, color: "#888" }}>{lot.granjaNom}</div>
+                      </div>
+                      <span style={{ fontSize: 10, background: estaObert ? "#e1f5ee" : "#f1f5f9", color: estaObert ? "#0f6e56" : "#64748b", borderRadius: 6, padding: "2px 7px", fontWeight: 600, whiteSpace: "nowrap" }}>{estaObert ? "Obert" : "Tancat"}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 12, fontSize: 12, color: "#555", flexWrap: "wrap" }}>
+                      <span>📅 {dataEntrada}</span>
+                      <span style={{ color: fc.colorDark, fontWeight: 600 }}>🐷 {caps} caps</span>
+                      {baixes > 0 && <span style={{ color: "#E24B4A" }}>💀 {baixes} baixes</span>}
+                      {capsSortits > 0 && <span style={{ color: "#BA7517" }}>📤 {capsSortits} sortits</span>}
+                      {estaObert && <span style={{ color: "#378ADD", fontWeight: 600 }}>= {capsActuals} actuals</span>}
+                    </div>
+                  </div>
+                  {sortides.map(s => (
+                    <div key={s.id} style={{ fontSize: 11, color: "#aaa", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span>📍</span>
+                      <span>{s.caps} caps → <strong style={{ color: "#64748b" }}>{labelDesti(s)}</strong></span>
+                    </div>
+                  ))}
+                  {estaObert && sortides.length === 0 && (
+                    <div style={{ fontSize: 11, color: "#cbd5e1", marginTop: 4, fontStyle: "italic" }}>En curs...</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Alertes ────────────────────────────────────────────────────────────────
 function PantallaAlertes({ data, onLotClick, dismissed, onDismiss }) {
   const totes = Object.entries(data).filter(([f]) => f !== "desmamats").flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
@@ -1095,9 +1203,10 @@ function AppInterna() {
         {nav === "lots" && !lotId && fase === "desmamats" && <PantallaDesmamats registres={data.desmamats || []} grangesTransicio={data.transicio || []} onGuardar={handleGuardarDesmamats} onCrearLot={handleCrearLotFromDesmamats} toast={toast} />}
         {nav === "lots" && lotId && fase !== "desmamats" && <LotDetall />}
         {nav === "exportacio" && <PantallaExportacio data={data} />}
+        {nav === "tracabilitat" && <PantallaTracabilitat data={data} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
-        {[["lots", "🏠", "Lots"], ["global", "📊", "Resum"], ["alertes", "🔔", "Alertes"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
+        {[["lots", "🏠", "Lots"], ["global", "📊", "Resum"], ["alertes", "🔔", "Alertes"], ["tracabilitat", "🔗", "Traça"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
           <button key={k} onClick={() => { setNav(k); if (k === "lots") setLotId(null); }} style={{ flex: 1, padding: "10px 0 14px", border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <span style={{ fontSize: 20, position: "relative" }}>{icon}{k === "alertes" && novesAlertes.length > 0 && <span style={{ position: "absolute", top: -4, right: -6, width: 16, height: 16, background: nCrit > 0 ? "#E24B4A" : "#BA7517", color: "#fff", borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{novesAlertes.length}</span>}</span>
             <span style={{ fontSize: 10, color: nav === k ? fc.color : "#aaa", fontWeight: nav === k ? 700 : 400 }}>{lbl}</span>
