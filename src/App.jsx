@@ -908,10 +908,18 @@ function AppInterna() {
 
   const handleSortida = async vals => {
     if (!vals.data || !vals.caps || !vals.pesKg) return;
+    const destiLotId = vals.tipusDesti === "lot" ? vals.destiLot : null;
     const de = vals.tipusDesti === "lot" ? lotsPerDesti.find(x => x.value === vals.destiLot)?.label || "" : vals.desti || "";
     const { error } = await supabase.from("sortides").insert({ lot_id: lotId, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), tipus_desti: vals.tipusDesti, desti: de });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
-    toast("Sortida registrada ✓"); setModal(null);
+    if (destiLotId) {
+      const origenNom = (granja?.nom || "") + " / " + (lot?.nom || "");
+      await supabase.from("entrades").insert({ lot_id: destiLotId, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), origen: origenNom });
+      const newData = await carregarTot(); setData(newData);
+      toast("Sortida registrada i entrada creada al lot destí ✓"); setModal(null);
+    } else {
+      toast("Sortida registrada ✓"); setModal(null);
+    }
     if (vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") {
       const faseDesti = vals.tipusDesti === "nouPreengreix" ? "preengreix" : "engreix";
       setSortidaPendent({ data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), origenNom: (granja?.nom || "") + " / " + (lot?.nom || ""), faseDesti, parentLotId: lotId });
