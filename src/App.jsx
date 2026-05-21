@@ -151,7 +151,7 @@ async function carregarTot() {
   const result = { transicio: [], preengreix: [], engreix: [], desmamats: dDB || [] };
   for (const g of (gDB || [])) {
     const lots = (lDB || []).filter(l => l.granja_id === g.id).map(l => ({
-      id: l.id, nom: l.nom, estat: l.estat, gmdTeoric: l.gmd_teoric || null,
+      id: l.id, nom: l.nom, estat: l.estat, gmdTeoric: l.gmd_teoric || null, parentLotId: l.parent_lot_id || null,
       entrades:    (eDB || []).filter(e => e.lot_id === l.id).map(e => ({ id: e.id, data: e.data, caps: e.caps, pesKg: e.pes_kg, origen: e.origen })),
       sortides:    (sDB || []).filter(s => s.lot_id === l.id).map(s => ({ id: s.id, data: s.data, caps: s.caps, pesKg: s.pes_kg, tipusDesti: s.tipus_desti, desti: s.desti })),
       baixes:      (bDB || []).filter(b => b.lot_id === l.id).map(b => ({ id: b.id, data: b.data, caps: b.caps, causa: b.causa })),
@@ -417,114 +417,6 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
   </>);
 }
 
-// ── Traçabilitat ───────────────────────────────────────────────────────────
-function PantallaTracabilitat({ data }) {
-  const fases = ["transicio", "preengreix", "engreix"];
-  const tots = fases.flatMap(f =>
-    (data[f] || []).flatMap(g =>
-      g.lots.map(l => ({ ...l, fase: f, granjaNom: g.nom }))
-    )
-  ).sort((a, b) => {
-    const da = a.entrades[0]?.data || "";
-    const db = b.entrades[0]?.data || "";
-    return da.localeCompare(db);
-  });
-
-  const labelDesti = (s) => {
-    if (!s) return null;
-    if (s.tipusDesti === "escorxador") return "🏭 " + (s.desti || "Escorxador");
-    if (s.tipusDesti === "nouPreengreix") return "→ Nou lot Pre-engreix";
-    if (s.tipusDesti === "nouEngreix") return "→ Nou lot Engreix";
-    if (s.tipusDesti === "lot") return "→ " + (s.desti || "Lot existent");
-    return "→ " + (s.desti || s.tipusDesti || "Altre");
-  };
-
-  return (
-    <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
-      <div style={{ padding: "12px 16px 12px" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Traçabilitat</div>
-        <div style={{ fontSize: 13, color: "#888" }}>Flux complet dels lots entre fases</div>
-      </div>
-
-      {tots.length === 0 && (
-        <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa" }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>🔗</div>
-          <div style={{ fontSize: 15 }}>Cap lot registrat</div>
-        </div>
-      )}
-
-      <div style={{ padding: "0 14px" }}>
-        {tots.map((lot, idx) => {
-          const fc = FASES[lot.fase];
-          const caps = lot.entrades.reduce((s, e) => s + e.caps, 0);
-          const baixes = lot.baixes.reduce((s, b) => s + b.caps, 0);
-          const sortides = lot.sortides;
-          const capsSortits = sortides.reduce((s, s2) => s + s2.caps, 0);
-          const capsActuals = caps - baixes - capsSortits;
-          const dataEntrada = lot.entrades[0]?.data || "";
-          const origen = lot.entrades[0]?.origen || null;
-          const estaObert = lot.estat === "obert";
-          const prev = tots[idx - 1];
-          const showFaseDivider = idx === 0 || prev.fase !== lot.fase;
-
-          return (
-            <div key={lot.id}>
-              {showFaseDivider && (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 10px" }}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: fc.bgLight, border: `2px solid ${fc.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{fc.emoji}</div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: fc.colorDark }}>{fc.label}</div>
-                  <div style={{ flex: 1, height: 1, background: fc.color + "33" }} />
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 0 }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 28, flexShrink: 0 }}>
-                  <div style={{ width: 2, flex: 1, background: origen ? fc.color + "55" : "transparent", minHeight: 12 }} />
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: fc.color, flexShrink: 0 }} />
-                  <div style={{ width: 2, flex: 1, background: sortides.length > 0 ? fc.color + "55" : estaObert ? "#e2e8f0" : "transparent", minHeight: 12 }} />
-                </div>
-
-                <div style={{ flex: 1, marginBottom: 8 }}>
-                  {origen && (
-                    <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                      <span>📦</span><span>{origen}</span>
-                    </div>
-                  )}
-                  <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", border: `1.5px solid ${estaObert ? fc.color + "55" : "#e2e8f0"}`, boxShadow: "var(--shadow-sm)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{lot.nom}</div>
-                        <div style={{ fontSize: 12, color: "#888" }}>{lot.granjaNom}</div>
-                      </div>
-                      <span style={{ fontSize: 10, background: estaObert ? "#e1f5ee" : "#f1f5f9", color: estaObert ? "#0f6e56" : "#64748b", borderRadius: 6, padding: "2px 7px", fontWeight: 600, whiteSpace: "nowrap" }}>{estaObert ? "Obert" : "Tancat"}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 12, fontSize: 12, color: "#555", flexWrap: "wrap" }}>
-                      <span>📅 {dataEntrada}</span>
-                      <span style={{ color: fc.colorDark, fontWeight: 600 }}>🐷 {caps} caps</span>
-                      {baixes > 0 && <span style={{ color: "#E24B4A" }}>💀 {baixes} baixes</span>}
-                      {capsSortits > 0 && <span style={{ color: "#BA7517" }}>📤 {capsSortits} sortits</span>}
-                      {estaObert && <span style={{ color: "#378ADD", fontWeight: 600 }}>= {capsActuals} actuals</span>}
-                    </div>
-                  </div>
-                  {sortides.map(s => (
-                    <div key={s.id} style={{ fontSize: 11, color: "#aaa", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                      <span>📍</span>
-                      <span>{s.caps} caps → <strong style={{ color: "#64748b" }}>{labelDesti(s)}</strong></span>
-                    </div>
-                  ))}
-                  {estaObert && sortides.length === 0 && (
-                    <div style={{ fontSize: 11, color: "#cbd5e1", marginTop: 4, fontStyle: "italic" }}>En curs...</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── Alertes ────────────────────────────────────────────────────────────────
 function PantallaAlertes({ data, onLotClick, dismissed, onDismiss }) {
   const totes = Object.entries(data).filter(([f]) => f !== "desmamats").flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
@@ -591,6 +483,91 @@ function PantallaLogin({ onLogin }) {
         </div>
         {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 16, textAlign: "center" }}>Usuari o contrasenya incorrectes</div>}
         <button onClick={handleLogin} style={{ width: "100%", padding: "15px", background: "#10b981", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", letterSpacing: "0.02em" }}>Entrar</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Traçabilitat ───────────────────────────────────────────────────────────
+function PantallaTracabilitat({ data }) {
+  const fasesOrdre = ["desmamats", "transicio", "preengreix", "engreix"];
+
+  const totsLots = fasesOrdre.slice(1).flatMap(f =>
+    (data[f] || []).flatMap(g => g.lots.map(l => ({ ...l, fase: f, granjaNom: g.nom })))
+  );
+  const lotById = Object.fromEntries(totsLots.map(l => [l.id, l]));
+
+  const lotsPerFase = {
+    desmamats: (data.desmamats || []),
+    transicio:  (data.transicio  || []).flatMap(g => g.lots.map(l => ({ ...l, fase: "transicio",  granjaNom: g.nom }))),
+    preengreix: (data.preengreix || []).flatMap(g => g.lots.map(l => ({ ...l, fase: "preengreix", granjaNom: g.nom }))),
+    engreix:    (data.engreix    || []).flatMap(g => g.lots.map(l => ({ ...l, fase: "engreix",    granjaNom: g.nom }))),
+  };
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
+      <div style={{ padding: "12px 16px 8px" }}>
+        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>Traçabilitat</div>
+        <div style={{ fontSize: 13, color: "#888", marginBottom: 12 }}>Flux dels lots per fase · desplaça horitzontalment</div>
+      </div>
+      <div style={{ overflowX: "auto", paddingBottom: 12 }}>
+        <div style={{ display: "flex", gap: 0, padding: "0 12px", minWidth: "max-content", alignItems: "flex-start" }}>
+          {fasesOrdre.map((f, fi) => {
+            const info = FASES[f];
+            const lots = lotsPerFase[f];
+            const isLast = fi === fasesOrdre.length - 1;
+            return (
+              <div key={f} style={{ display: "flex", alignItems: "flex-start" }}>
+                <div style={{ width: 155 }}>
+                  <div style={{ background: info.bgLight, borderRadius: 10, padding: "7px 10px", marginBottom: 10, display: "flex", alignItems: "center", gap: 6, border: `1px solid ${info.color}33` }}>
+                    <span style={{ fontSize: 15 }}>{info.emoji}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: info.colorDark }}>{info.label}</span>
+                    <span style={{ fontSize: 10, color: info.color, marginLeft: "auto" }}>{lots.length}</span>
+                  </div>
+                  {lots.length === 0 && (
+                    <div style={{ fontSize: 11, color: "#ccc", textAlign: "center", padding: "20px 0" }}>Sense lots</div>
+                  )}
+                  {f === "desmamats" ? lots.map(d => {
+                    const garArr = Array.isArray(d.garrins) ? d.garrins : [];
+                    const tG = garArr.reduce((s, g) => s + (g || 0), 0);
+                    const tT = garArr.filter(g => g > 0).length;
+                    return (
+                      <div key={d.id} style={{ background: "#fff", borderRadius: 12, padding: "10px 12px", marginBottom: 8, border: `1.5px solid ${info.color}33`, boxShadow: "var(--shadow-sm)" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: info.colorDark, marginBottom: 2 }}>{d.granja}</div>
+                        <div style={{ fontSize: 10, color: "#aaa", marginBottom: 4 }}>{d.data}</div>
+                        <div style={{ fontSize: 11, color: "#555" }}>{tT} truges · {tG} garrins</div>
+                        {d.lot_id && <div style={{ fontSize: 10, color: FASES.transicio.color, marginTop: 4, fontWeight: 600 }}>→ Transició</div>}
+                      </div>
+                    );
+                  }) : lots.map(l => {
+                    const st = calcStats(l);
+                    const pare = l.parentLotId ? lotById[l.parentLotId] : null;
+                    const fills = totsLots.filter(x => x.parentLotId === l.id);
+                    const b = bdg(l.estat);
+                    const faseFill = fills[0] ? FASES[fills[0].fase] : null;
+                    return (
+                      <div key={l.id} style={{ background: "#fff", borderRadius: 12, padding: "10px 12px", marginBottom: 8, border: `1.5px solid ${l.estat === "obert" ? info.color + "55" : "#e2e8f0"}`, boxShadow: "var(--shadow-sm)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 3 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: info.colorDark, wordBreak: "break-all", flex: 1 }}>{l.nom}</div>
+                          <span style={{ fontSize: 9, background: b.bg, color: b.color, borderRadius: 4, padding: "1px 5px", flexShrink: 0, marginLeft: 4 }}>{b.text}</span>
+                        </div>
+                        <div style={{ fontSize: 10, color: "#888", marginBottom: 4 }}>{l.granjaNom}</div>
+                        <div style={{ fontSize: 11, color: "#555" }}>{st.cap} caps · {st.tB} baixes</div>
+                        {pare && <div style={{ fontSize: 10, color: "#aaa", marginTop: 4 }}>← {pare.nom}</div>}
+                        {fills.length > 0 && <div style={{ fontSize: 10, color: faseFill?.color || "#888", marginTop: 2, fontWeight: 600 }}>→ {fills.map(c => c.nom).join(", ")}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {!isLast && (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 40, width: 24, flexShrink: 0 }}>
+                    <div style={{ fontSize: 14, color: "#ddd" }}>›</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -937,7 +914,7 @@ function AppInterna() {
     toast("Sortida registrada ✓"); setModal(null);
     if (vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") {
       const faseDesti = vals.tipusDesti === "nouPreengreix" ? "preengreix" : "engreix";
-      setSortidaPendent({ data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), origenNom: (granja?.nom || "") + " / " + (lot?.nom || ""), faseDesti });
+      setSortidaPendent({ data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), origenNom: (granja?.nom || "") + " / " + (lot?.nom || ""), faseDesti, parentLotId: lotId });
     }
   };
 
@@ -1265,8 +1242,10 @@ function AppInterna() {
               </div>
               <button onClick={async () => {
                 if (!sortidaPendent.nomLot || !sortidaPendent.granjaDestiId) { toast("Omple el nom i la granja", "avis"); return; }
-                const nl = { id: Date.now(), nom: sortidaPendent.nomLot, estat: "obert", entrades: [{ id: 1, data: sortidaPendent.data, caps: sortidaPendent.caps, pesKg: sortidaPendent.pesKg, origen: sortidaPendent.origenNom }], sortides: [], baixes: [], tractaments: [] };
-                setData(d => ({ ...d, [fd]: d[fd].map(g => g.id !== sortidaPendent.granjaDestiId ? g : { ...g, lots: [...g.lots, nl] }) }));
+                const { data: lotData, error: lotErr } = await supabase.from("lots").insert({ granja_id: sortidaPendent.granjaDestiId, nom: sortidaPendent.nomLot, fase: fd, estat: "obert", parent_lot_id: sortidaPendent.parentLotId || null }).select().single();
+                if (lotErr) { toast("Error en crear lot ❌", "alerta"); return; }
+                await supabase.from("entrades").insert({ lot_id: lotData.id, data: sortidaPendent.data, caps: sortidaPendent.caps, pes_kg: sortidaPendent.pesKg, origen: sortidaPendent.origenNom });
+                const newData = await carregarTot(); setData(newData);
                 toast("Lot de " + fcDesti.label + " creat! " + fcDesti.emoji); setSortidaPendent(null);
               }} style={{ width: "100%", padding: "15px", background: fcDesti.color, border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>
                 Crear lot de {fcDesti.label}
