@@ -109,7 +109,8 @@ const FASES = {
   desmamats:  { key: "desmamats",  label: "Desmamats",   emoji: "🍼", color: "#ec4899", bgLight: "#fdf2f8", colorDark: "#9d174d", pesRang: "0–5 kg" },
   transicio:  { key: "transicio",  label: "Transició",   emoji: "🐣", color: "#6366f1", bgLight: "#eef2ff", colorDark: "#3730a3", pesRang: "5–25 kg" },
   preengreix: { key: "preengreix", label: "Pre-engreix", emoji: "🐖", color: "#f59e0b", bgLight: "#fffbeb", colorDark: "#92400e", pesRang: "25–50 kg" },
-  engreix:    { key: "engreix",    label: "Engreix",     emoji: "🐷", color: "#10b981", bgLight: "#ecfdf5", colorDark: "#065f46", pesRang: "50–110 kg" }
+  engreix:    { key: "engreix",    label: "Engreix",     emoji: "🐷", color: "#10b981", bgLight: "#ecfdf5", colorDark: "#065f46", pesRang: "50–110 kg" },
+  mares:      { key: "mares",      label: "Mares",       emoji: "🐗", color: "#8b5cf6", bgLight: "#f5f3ff", colorDark: "#4c1d95", pesRang: "110–250 kg" }
 };
 
 function destiOptions(fase) {
@@ -121,6 +122,13 @@ function destiOptions(fase) {
   ];
   if (fase === "preengreix") return [
     { value: "nouEngreix",  label: "Nou lot d'engreix" },
+    { value: "nouMares",    label: "Nou lot de Mares" },
+    { value: "escorxador",  label: "Escorxador" },
+    { value: "lot",         label: "Lot existent" },
+    { value: "altre",       label: "Altre" },
+  ];
+  if (fase === "engreix") return [
+    { value: "nouMares",    label: "Nou lot de Mares" },
     { value: "escorxador",  label: "Escorxador" },
     { value: "lot",         label: "Lot existent" },
     { value: "altre",       label: "Altre" },
@@ -148,7 +156,7 @@ async function carregarTot() {
     supabase.from("tractaments").select("*"),
     supabase.from("desmamats").select("*").order("created_at", { ascending: false }),
   ]);
-  const result = { transicio: [], preengreix: [], engreix: [], desmamats: dDB || [] };
+  const result = { transicio: [], preengreix: [], engreix: [], mares: [], desmamats: dDB || [] };
   for (const g of (gDB || [])) {
     const lots = (lDB || []).filter(l => l.granja_id === g.id).map(l => ({
       id: l.id, nom: l.nom, estat: l.estat, gmdTeoric: l.gmd_teoric || null, parentLotId: l.parent_lot_id || null,
@@ -219,7 +227,7 @@ function downloadCsv(csv, nom) {
 
 // ── Exportació ─────────────────────────────────────────────────────────────
 function PantallaExportacio({ data }) {
-  const [filtFases, setFiltFases] = useState(["transicio", "preengreix", "engreix"]);
+  const [filtFases, setFiltFases] = useState(["transicio", "preengreix", "engreix", "mares"]);
   const [filtEstat, setFiltEstat] = useState("tots");
   const [filtTipus, setFiltTipus] = useState(["resum", "entrades", "sortides", "baixes", "tractaments"]);
   const [preview, setPreview] = useState(false);
@@ -490,7 +498,7 @@ function PantallaLogin({ onLogin }) {
 
 // ── Traçabilitat ───────────────────────────────────────────────────────────
 function PantallaTracabilitat({ data }) {
-  const fasesOrdre = ["desmamats", "transicio", "preengreix", "engreix"];
+  const fasesOrdre = ["desmamats", "transicio", "preengreix", "engreix", "mares"];
 
   const totsLots = fasesOrdre.slice(1).flatMap(f =>
     (data[f] || []).flatMap(g => g.lots.map(l => ({ ...l, fase: f, granjaNom: g.nom })))
@@ -502,6 +510,7 @@ function PantallaTracabilitat({ data }) {
     transicio:  (data.transicio  || []).flatMap(g => g.lots.map(l => ({ ...l, fase: "transicio",  granjaNom: g.nom }))),
     preengreix: (data.preengreix || []).flatMap(g => g.lots.map(l => ({ ...l, fase: "preengreix", granjaNom: g.nom }))),
     engreix:    (data.engreix    || []).flatMap(g => g.lots.map(l => ({ ...l, fase: "engreix",    granjaNom: g.nom }))),
+    mares:      (data.mares      || []).flatMap(g => g.lots.map(l => ({ ...l, fase: "mares",      granjaNom: g.nom }))),
   };
 
   return (
@@ -833,7 +842,7 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
 
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
-  const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [], desmamats: [] });
+  const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [], mares: [], desmamats: [] });
   const [carregant, setCarregant] = useState(true);
   const [nav, setNav] = useState("lots");
   const [granjaId, setGranjaId] = useState(null);
@@ -920,8 +929,8 @@ function AppInterna() {
     } else {
       toast("Sortida registrada ✓"); setModal(null);
     }
-    if (vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") {
-      const faseDesti = vals.tipusDesti === "nouPreengreix" ? "preengreix" : "engreix";
+    if (vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix" || vals.tipusDesti === "nouMares") {
+      const faseDesti = vals.tipusDesti === "nouPreengreix" ? "preengreix" : vals.tipusDesti === "nouMares" ? "mares" : "engreix";
       setSortidaPendent({ data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), origenNom: (granja?.nom || "") + " / " + (lot?.nom || ""), faseDesti, parentLotId: lotId });
     }
   };
