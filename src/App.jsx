@@ -110,7 +110,7 @@ const FASES = {
   transicio:  { key: "transicio",  label: "Transició",   emoji: "🐣", color: "#6366f1", bgLight: "#eef2ff", colorDark: "#3730a3", pesRang: "5–25 kg" },
   preengreix: { key: "preengreix", label: "Pre-engreix", emoji: "🐖", color: "#f59e0b", bgLight: "#fffbeb", colorDark: "#92400e", pesRang: "25–50 kg" },
   engreix:    { key: "engreix",    label: "Engreix",     emoji: "🐷", color: "#10b981", bgLight: "#ecfdf5", colorDark: "#065f46", pesRang: "50–110 kg" },
-  mares:      { key: "mares",      label: "Mares",       emoji: "🐗", color: "#8b5cf6", bgLight: "#f5f3ff", colorDark: "#4c1d95", pesRang: "110–250 kg" }
+  mares:      { key: "mares",      label: "Mares",       emoji: "🐗", color: "#f43f5e", bgLight: "#fff1f2", colorDark: "#881337", pesRang: "110–250 kg" }
 };
 
 function destiOptions(fase) {
