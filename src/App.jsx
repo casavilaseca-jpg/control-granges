@@ -1369,17 +1369,19 @@ function AppInterna() {
       <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 300, display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none", width: "90%", maxWidth: 400 }}>
         {toasts.map(t => (<div key={t.id} style={{ background: t.t === "alerta" ? "#FCEBEB" : t.t === "avis" ? "#FAEEDA" : "#1D9E75", color: t.t === "alerta" ? "#A32D2D" : t.t === "avis" ? "#633806" : "#fff", borderRadius: 12, padding: "12px 18px", fontSize: 14, fontWeight: 500, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>{t.msg}</div>))}
       </div>
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-        <button onClick={() => setShowFaseMenu(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, border: "none", background: "var(--color-background-secondary)", borderRadius: 12, padding: "8px 14px", cursor: "pointer" }}>
-          <span style={{ fontSize: 18 }}>{fc.emoji}</span>
-          <span style={{ fontWeight: 700, fontSize: 15, color: fc.color }}>{fc.label}</span>
-          <span style={{ fontSize: 11, color: "#aaa" }}>▼</span>
-        </button>
-        <button onClick={() => setNav("alertes")} style={{ position: "relative", border: "none", background: nCrit > 0 ? "#FCEBEB" : "var(--color-background-secondary)", borderRadius: 12, padding: "8px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 18 }}>🔔</span>
-          {novesAlertes.length > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, background: nCrit > 0 ? "#E24B4A" : "#BA7517", color: "#fff", borderRadius: "50%", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{novesAlertes.length}</span>}
-        </button>
-      </div>
+      {nav !== "global" && (
+        <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          <button onClick={() => setShowFaseMenu(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, border: "none", background: "var(--color-background-secondary)", borderRadius: 12, padding: "8px 14px", cursor: "pointer" }}>
+            <span style={{ fontSize: 18 }}>{fc.emoji}</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: fc.color }}>{fc.label}</span>
+            <span style={{ fontSize: 11, color: "#aaa" }}>▼</span>
+          </button>
+          <button onClick={() => setNav("alertes")} style={{ position: "relative", border: "none", background: nCrit > 0 ? "#FCEBEB" : "var(--color-background-secondary)", borderRadius: 12, padding: "8px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 18 }}>🔔</span>
+            {novesAlertes.length > 0 && <span style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, background: nCrit > 0 ? "#E24B4A" : "#BA7517", color: "#fff", borderRadius: "50%", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{novesAlertes.length}</span>}
+          </button>
+        </div>
+      )}
       {showFaseMenu && (
         <div style={{ position: "absolute", top: 60, left: 12, right: 12, background: "#fff", borderRadius: 16, boxShadow: "0 8px 30px rgba(0,0,0,0.25)", zIndex: 150, padding: 8 }}>
           {Object.values(FASES).map(f => (
