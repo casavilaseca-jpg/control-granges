@@ -840,11 +840,207 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
   );
 }
 
+// ── Dashboard ──────────────────────────────────────────────────────────────
+function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
+  const fasesOrdre = ["transicio", "preengreix", "engreix", "mares"];
+
+  // Calculs per fase
+  const statsPerFase = fasesOrdre.map(f => {
+    const lots = (data[f] || []).flatMap(g => g.lots);
+    const oberts = lots.filter(l => l.estat === "obert");
+    const caps = oberts.reduce((s, l) => s + calcStats(l).cap, 0);
+    const tCE = oberts.reduce((s, l) => s + calcStats(l).tCE, 0);
+    const tB  = oberts.reduce((s, l) => s + calcStats(l).tB, 0);
+    const baixes7 = oberts.reduce((s, l) => s + l.baixes.filter(b => dias(b.data, TODAY) <= 7).reduce((ss, b) => ss + b.caps, 0), 0);
+    const mort = tCE > 0 ? parseFloat(((tB / tCE) * 100).toFixed(1)) : null;
+    return { f, info: FASES[f], nLots: oberts.length, caps, baixes7, mort };
+  });
+
+  // Gràfic: últimes 8 setmanes
+  const W8 = 8;
+  const weekBuckets = Array.from({ length: W8 }, (_, i) => {
+    const msAgo = (W8 - 1 - i) * 7 * 86400000;
+    const s = new Date(new Date(TODAY) - msAgo);
+    const e = new Date(new Date(TODAY) - msAgo + 7 * 86400000);
+    return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: `S${i + 1}` };
+  });
+
+  const weeklyPerFase = fasesOrdre.map(f => {
+    const lots = (data[f] || []).flatMap(g => g.lots);
+    const vals = weekBuckets.map(({ start, end }) =>
+      lots.reduce((s, l) => s + l.baixes.filter(b => b.data >= start && b.data < end).reduce((ss, b) => ss + b.caps, 0), 0)
+    );
+    return { f, info: FASES[f], vals };
+  });
+
+  const maxVal = Math.max(1, ...weeklyPerFase.flatMap(d => d.vals));
+  const CW = 300; const CH = 80;
+  const padL = 22; const padB = 14; const padT = 6; const padR = 4;
+  const tx = i => padL + i * (CW - padL - padR) / (W8 - 1);
+  const ty = v => padT + (1 - v / maxVal) * (CH - padT - padB);
+
+  // Lots en risc (alertes crítiques no descartades)
+  const lotsRisc = fasesOrdre.flatMap(f =>
+    (data[f] || []).flatMap(g => g.lots.flatMap(l => {
+      const als = detectarAlertes(l, g.nom, f).filter(a => a.nivell === "alerta" && !dismissed.has(`${f}-${g.nom}-${l.nom}-${a.regla}`));
+      return als.length ? [{ lot: l, granja: g, f, als }] : [];
+    }))
+  );
+
+  // Totals globals (per capçalera)
+  const totalCaps = statsPerFase.reduce((s, x) => s + x.caps, 0);
+  const totalBaixes7 = statsPerFase.reduce((s, x) => s + x.baixes7, 0);
+  const totalLots = statsPerFase.reduce((s, x) => s + x.nLots, 0);
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80, background: "#f8fafc" }}>
+      {/* Títol */}
+      <div style={{ padding: "14px 16px 12px", background: "#fff", borderBottom: "1px solid #e2e8f0" }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>Tauler de control</div>
+        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>Visió global · actualitzat ara</div>
+      </div>
+
+      {/* Pills resum global */}
+      <div style={{ display: "flex", gap: 8, padding: "12px 12px 0", overflowX: "auto" }}>
+        {[
+          { lbl: "Caps vius", val: totalCaps.toLocaleString(), color: "#0f172a", bg: "#fff" },
+          { lbl: "Lots oberts", val: totalLots, color: "#6366f1", bg: "#eef2ff" },
+          { lbl: "Baixes 7d", val: totalBaixes7 || "—", color: totalBaixes7 > 0 ? "#E24B4A" : "#94a3b8", bg: totalBaixes7 > 0 ? "#fff1f1" : "#fff" },
+          { lbl: "Alertes", val: lotsRisc.length || "—", color: lotsRisc.length > 0 ? "#E24B4A" : "#94a3b8", bg: lotsRisc.length > 0 ? "#FCEBEB" : "#fff" },
+        ].map(({ lbl, val, color, bg }) => (
+          <div key={lbl} style={{ flexShrink: 0, background: bg, borderRadius: 12, padding: "10px 14px", border: "1px solid #e2e8f0", minWidth: 80, textAlign: "center" }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color }}>{val}</div>
+            <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, whiteSpace: "nowrap" }}>{lbl}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bloc 1: Taula per fase */}
+      <div style={{ margin: "12px 12px 0" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Per fase</div>
+        <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          {/* Header taula */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 42px 58px 46px", padding: "8px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+            {["FASE", "CAPS", "LOTS", "MORT%", "7D↓"].map((h, i) => (
+              <div key={h} style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", textAlign: i === 0 ? "left" : "right" }}>{h}</div>
+            ))}
+          </div>
+          {/* Files */}
+          {statsPerFase.map(({ f, info, nLots, caps, baixes7, mort }, i) => {
+            const hc = mort !== null && mort > 0 ? heatColor(mort) : null;
+            const isLast = i === statsPerFase.length - 1;
+            return (
+              <div key={f} onClick={() => onLotClick(f)} style={{ display: "grid", gridTemplateColumns: "1fr 60px 42px 58px 46px", padding: "13px 14px", borderBottom: isLast ? "none" : "1px solid #f1f5f9", alignItems: "center", cursor: "pointer", transition: "background 0.1s" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                {/* Fase */}
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: info.bgLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: `1px solid ${info.color}33` }}>
+                    {info.emoji}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: info.colorDark }}>{info.label}</div>
+                    <div style={{ fontSize: 10, color: "#94a3b8" }}>{info.pesRang}</div>
+                  </div>
+                </div>
+                {/* Caps */}
+                <div style={{ fontSize: 15, fontWeight: 800, textAlign: "right", color: caps > 0 ? "#0f172a" : "#cbd5e1" }}>
+                  {caps > 0 ? caps.toLocaleString() : "—"}
+                </div>
+                {/* Lots */}
+                <div style={{ fontSize: 13, textAlign: "right", fontWeight: 600, color: nLots > 0 ? info.color : "#cbd5e1" }}>
+                  {nLots || "—"}
+                </div>
+                {/* Mortalitat */}
+                <div style={{ textAlign: "right" }}>
+                  {hc ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, background: hc.bg, color: hc.color, borderRadius: 6, padding: "3px 7px" }}>{mort}%</span>
+                  ) : mort === 0 ? (
+                    <span style={{ fontSize: 11, color: "#10b981", fontWeight: 700 }}>0%</span>
+                  ) : <span style={{ fontSize: 11, color: "#cbd5e1" }}>—</span>}
+                </div>
+                {/* Baixes 7d */}
+                <div style={{ fontSize: 14, fontWeight: 700, textAlign: "right", color: baixes7 > 0 ? "#E24B4A" : "#cbd5e1" }}>
+                  {baixes7 > 0 ? baixes7 : "—"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bloc 2: Gràfic de tendència */}
+      <div style={{ margin: "16px 12px 0" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tendència de baixes · últimes 8 setmanes</div>
+        <div style={{ background: "#fff", borderRadius: 16, padding: "14px 12px 10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          {maxVal <= 1 ? (
+            <div style={{ textAlign: "center", padding: "20px 0", color: "#cbd5e1", fontSize: 13 }}>Sense dades de baixes recents</div>
+          ) : (
+            <>
+              <svg viewBox={`0 0 ${CW} ${CH}`} style={{ width: "100%", height: CH, display: "block" }} preserveAspectRatio="none">
+                {/* Grid horitzontal */}
+                {[0.33, 0.66, 1].map(r => (
+                  <line key={r} x1={padL} y1={ty(maxVal * r)} x2={CW - padR} y2={ty(maxVal * r)} stroke="#f1f5f9" strokeWidth="1" />
+                ))}
+                {/* Eix Y labels */}
+                <text x={padL - 3} y={ty(maxVal) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{maxVal}</text>
+                <text x={padL - 3} y={ty(0) + 1} fontSize="8" fill="#cbd5e1" textAnchor="end">0</text>
+                {/* Línies per fase */}
+                {weeklyPerFase.map(({ f, info, vals }) => (
+                  <polyline key={f}
+                    points={vals.map((v, i) => `${tx(i)},${ty(v)}`).join(" ")}
+                    fill="none" stroke={info.color} strokeWidth="2.5"
+                    strokeLinejoin="round" strokeLinecap="round"
+                  />
+                ))}
+                {/* Eix X labels */}
+                {weekBuckets.map((b, i) => (
+                  <text key={i} x={tx(i)} y={CH - 1} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
+                ))}
+              </svg>
+              {/* Llegenda */}
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
+                {weeklyPerFase.map(({ f, info }) => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 14, height: 3, background: info.color, borderRadius: 2 }} />
+                    <span style={{ fontSize: 10, color: "#94a3b8" }}>{info.label}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Bloc 3: Lots en risc */}
+      {lotsRisc.length > 0 && (
+        <div style={{ margin: "16px 12px 0" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Lots en risc</div>
+          {lotsRisc.map(({ lot, granja, f, als }) => (
+            <div key={lot.id} onClick={() => onLotClick(f, granja.id, lot.id)} style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 8, border: "1.5px solid #fca5a5", cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{lot.nom}</div>
+                <span style={{ fontSize: 10, background: FASES[f].bgLight, color: FASES[f].colorDark, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>{FASES[f].emoji} {FASES[f].label}</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{granja.nom}</div>
+              {als.map((a, i) => (
+                <div key={i} style={{ fontSize: 12, color: "#dc2626", fontWeight: 500 }}>⚠ {a.msg} — {a.detall}</div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ height: 12 }} />
+    </div>
+  );
+}
+
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
   const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [], mares: [], desmamats: [] });
   const [carregant, setCarregant] = useState(true);
-  const [nav, setNav] = useState("lots");
+  const [nav, setNav] = useState("global");
   const [granjaId, setGranjaId] = useState(null);
   const [lotId, setLotId] = useState(null);
   const [tabLot, setTabLot] = useState("resum");
@@ -1192,7 +1388,7 @@ function AppInterna() {
       )}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={() => showFaseMenu && setShowFaseMenu(false)}>
         {nav === "alertes" && <PantallaAlertes data={data} dismissed={dismissed} onDismiss={a => setDismissed(s => new Set([...s, `${a.fase}-${a.granja}-${a.lot}-${a.regla}`]))} onLotClick={a => { const g = (data[a.fase] || []).find(g => g.nom === a.granja); if (g) { setFase(a.fase); setGranjaId(g.id); const l = g.lots.find(l => l.nom === a.lot); if (l) { setLotId(l.id); setTabLot("resum"); setNav("lots"); } } }} />}
-        {nav === "global" && <VistaGlobal />}
+        {nav === "global" && <PantallaDashboard data={data} totesAlertes={totesAlertes} dismissed={dismissed} onLotClick={(f, gid, lid) => { setFase(f); if (gid) { setGranjaId(gid); setLotId(lid || null); setTabLot("resum"); } setNav("lots"); }} />}
         {nav === "lots" && !lotId && fase !== "desmamats" && <LlistaLots />}
         {nav === "lots" && !lotId && fase === "desmamats" && <PantallaDesmamats registres={data.desmamats || []} grangesTransicio={data.transicio || []} onGuardar={handleGuardarDesmamats} onCrearLot={handleCrearLotFromDesmamats} toast={toast} />}
         {nav === "lots" && lotId && fase !== "desmamats" && <LotDetall />}
@@ -1200,7 +1396,7 @@ function AppInterna() {
         {nav === "tracabilitat" && <PantallaTracabilitat data={data} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
-        {[["lots", "🏠", "Lots"], ["global", "📊", "Resum"], ["alertes", "🔔", "Alertes"], ["tracabilitat", "🔗", "Traça"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
+        {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["alertes", "🔔", "Alertes"], ["tracabilitat", "🔗", "Traça"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
           <button key={k} onClick={() => { setNav(k); if (k === "lots") setLotId(null); }} style={{ flex: 1, padding: "10px 0 14px", border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <span style={{ fontSize: 20, position: "relative" }}>{icon}{k === "alertes" && novesAlertes.length > 0 && <span style={{ position: "absolute", top: -4, right: -6, width: 16, height: 16, background: nCrit > 0 ? "#E24B4A" : "#BA7517", color: "#fff", borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{novesAlertes.length}</span>}</span>
             <span style={{ fontSize: 10, color: nav === k ? fc.color : "#aaa", fontWeight: nav === k ? 700 : 400 }}>{lbl}</span>
