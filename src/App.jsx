@@ -795,9 +795,14 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
 }
 
 // ── App ────────────────────────────────────────────────────────────────────
+const SESSION_KEY = "cg_session_date";
+function sessionAvui() { return localStorage.getItem(SESSION_KEY) === TODAY; }
+function guardarSession() { localStorage.setItem(SESSION_KEY, TODAY); }
+
 export default function App() {
-  const [logat, setLogat] = useState(false);
-  if (!logat) return <PantallaLogin onLogin={() => setLogat(true)} />;
+  const [logat, setLogat] = useState(() => sessionAvui());
+  const handleLogin = () => { guardarSession(); setLogat(true); };
+  if (!logat) return <PantallaLogin onLogin={handleLogin} />;
   return <AppInterna />;
 }
 
