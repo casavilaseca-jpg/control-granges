@@ -845,6 +845,214 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
   );
 }
 
+// ── SIP Consultors ─────────────────────────────────────────────────────────
+function PantallaSIP({ data, toast }) {
+  const MESOS = ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
+  const now = new Date(TODAY);
+  const [mes, setMes] = useState(now.getMonth() === 0 ? 12 : now.getMonth());
+  const [any, setAny] = useState(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
+
+  const pad = n => String(n).padStart(2, '0');
+  const storageKey = `sip_${any}_${pad(mes)}`;
+  const [manual, setManual] = useState(() => { try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { return {}; } });
+  useEffect(() => { try { setManual(JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch { setManual({}); } }, [storageKey]);
+  const setM = (key, val) => setManual(m => ({ ...m, [key]: val }));
+
+  // Límits del mes
+  const start = `${any}-${pad(mes)}-01`;
+  const nextM = mes === 12 ? `${any + 1}-01-01` : `${any}-${pad(mes + 1)}-01`;
+  const during = items => (items || []).filter(x => x.data >= start && x.data < nextM);
+  const capsAt = (lot, cutoff) => {
+    const e = lot.entrades.filter(x => x.data < cutoff).reduce((s, x) => s + x.caps, 0);
+    const s = lot.sortides.filter(x => x.data < cutoff).reduce((s, x) => s + x.caps, 0);
+    const b = lot.baixes.filter(x => x.data < cutoff).reduce((s, x) => s + x.caps, 0);
+    return Math.max(0, e - s - b);
+  };
+  const lotsOf = f => (data[f] || []).flatMap(g => g.lots);
+  const calc = lots => ({
+    inici: lots.reduce((s, l) => s + capsAt(l, start), 0),
+    final: lots.reduce((s, l) => s + capsAt(l, nextM), 0),
+    entCaps: lots.reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + e.caps, 0), 0),
+    entKg:   lots.reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + (e.pesKg || 0), 0), 0),
+    sorCaps: lots.reduce((s, l) => s + during(l.sortides).reduce((ss, x) => ss + x.caps, 0), 0),
+    sorKg:   lots.reduce((s, l) => s + during(l.sortides).reduce((ss, x) => ss + (x.pesKg || 0), 0), 0),
+    baixes:  lots.reduce((s, l) => s + during(l.baixes).reduce((ss, b) => ss + b.caps, 0), 0),
+  });
+
+  const tr = calc(lotsOf('transicio'));
+  const pe = calc([...lotsOf('preengreix'), ...lotsOf('engreix')]);
+  const maresLots = lotsOf('mares');
+  const mr = calc(maresLots);
+  const garDes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM)
+    .reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).reduce((ss, g) => ss + (g || 0), 0), 0);
+  const mrEscorxCaps = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0);
+  const mrEscorxKg   = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0);
+
+  const guardar = () => { localStorage.setItem(storageKey, JSON.stringify(manual)); toast("Dades guardades ✓"); };
+
+  const exportarCSV = () => {
+    const m = manual; const f = v => (v != null && v !== '') ? String(v) : '';
+    const r = (lbl, q, p, i) => `"${lbl}","${f(q)}","${f(p)}","${f(i)}"`;
+    const n0 = v => (v && v > 0) ? Math.round(v) : '';
+    const lines = [
+      `"INFORME SIP — ${MESOS[mes-1]} ${any}"`,
+      `"","Quantitat","Pes Total (kg)","Import (€)"`,
+      '"MARES"',
+      r('Garrins desmamats', n0(garDes),'',''),
+      r('Garrins nascuts vius', f(m.garNasc),'',''),
+      r('Parts', f(m.parts),'',''),
+      r('Deslletaments', f(m.deslletaments),'',''),
+      r('Cens FINAL MES (Productives)', n0(mr.final),'',''),
+      r('Cens INI MES (Presents)', n0(mr.inici),'',''),
+      r('Futures — compra (granja externa)', f(m.futCompCaps),'',f(m.futCompImp)),
+      r('Futures — autorep (engreix propi)', f(m.futAutorepCaps),'',f(m.futAutorepImp)),
+      r('Royalties','','',f(m.royalties)),
+      r('Mares → escorxador (venda)', n0(mrEscorxCaps), n0(mrEscorxKg), f(m.maresEscorxImp)),
+      r('Pinso Lactants','',f(m.pinsoLactKg),f(m.pinsoLactImp)),
+      r('Pinso Gestants','',f(m.pinsoGestKg),f(m.pinsoGestImp)),
+      r('Dosis / Cubricions', f(m.dosis),'',''),
+      r('Verros', f(m.verros),'',f(m.verrosImp)),
+      r('Medicaments','','',f(m.medicaments)),
+      r('Pinso Garrins paridera','',f(m.pinsoPariKg),f(m.pinsoPariImp)),
+      '"TRANSICIÓ"',
+      r('Existències inici de mes', n0(tr.inici),'',''),
+      r('Animals entrats durant el mes', n0(tr.entCaps), n0(tr.entKg),''),
+      r('Animals sortits durant el mes', n0(tr.sorCaps), n0(tr.sorKg),''),
+      r('Existències finals de mes', n0(tr.final),'',''),
+      r('Baixes durant el mes', n0(tr.baixes),'',''),
+      '"PREENGREIX + ENGREIX"',
+      r('Existències inici de mes', n0(pe.inici),'',''),
+      r('Animals entrats durant el mes', n0(pe.entCaps), n0(pe.entKg),''),
+      r('Animals sortits durant el mes', n0(pe.sorCaps), n0(pe.sorKg),''),
+      r('Existències finals de mes', n0(pe.final),'',''),
+      r('Baixes durant el mes', n0(pe.baixes),'',''),
+    ];
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = `SIP_${any}_${pad(mes)}.csv`; a.click(); URL.revokeObjectURL(url);
+    toast('Informe SIP exportat ✓');
+  };
+
+  // Helpers de render
+  const autoC = { padding: '8px 6px 8px 10px', fontSize: 12, color: '#0c4a6e', fontWeight: 700, textAlign: 'right' };
+  const autoVal = v => (v && v > 0) ? Math.round(v).toLocaleString() : <span style={{ color: '#cbd5e1' }}>—</span>;
+  const inpStyle = { width: '100%', border: 'none', background: 'transparent', fontSize: 12, textAlign: 'right', color: '#1e293b', padding: '2px 0', outline: 'none', fontFamily: 'inherit' };
+  const Inp = ({ k, ph }) => <input type="number" inputMode="decimal" value={manual[k] || ''} onChange={e => setM(k, e.target.value)} placeholder={ph || '0'} style={inpStyle} />;
+  const tdA = (v, extra={}) => <td style={{ ...autoC, ...extra }}>{autoVal(v)}</td>;
+  const tdM = (k, ph) => <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}><Inp k={k} ph={ph} /></td>;
+  const tdEmpty = () => <td style={{ padding: '8px 6px', textAlign: 'right', color: '#e2e8f0', fontSize: 11 }}>—</td>;
+  const labelTd = (txt, auto) => <td style={{ padding: '8px 10px', fontSize: 11, color: auto ? '#0c4a6e' : '#374151', display: 'flex', alignItems: 'center', gap: 5 }}>
+    {auto && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0891b2', flexShrink: 0, display: 'inline-block' }} />}
+    {txt}
+  </td>;
+
+  const SecHead = ({ t }) => (
+    <tr style={{ background: '#0891b2' }}>
+      <td colSpan={4} style={{ padding: '8px 12px', fontWeight: 800, fontSize: 13, color: '#fff', letterSpacing: '0.04em' }}>{t}</td>
+    </tr>
+  );
+  const ColHead = () => (
+    <tr style={{ background: '#e0f2fe', borderBottom: '2px solid #bae6fd' }}>
+      {['CONCEPTE', 'QUANT.', 'PES (kg)', 'IMPORT (€)'].map((h, i) => (
+        <td key={h} style={{ padding: '6px 6px 6px ' + (i===0?'10px':'0'), fontSize: 9, fontWeight: 700, color: '#0369a1', textAlign: i===0?'left':'right', width: i===0?'46%':'18%' }}>{h}</td>
+      ))}
+    </tr>
+  );
+  const rowBorder = { borderBottom: '1px solid #f1f5f9' };
+  const AutoRow = ({ label, q, p }) => (
+    <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{tdEmpty()}
+    </tr>
+  );
+  const ManualRow = ({ label, qk, pk, ik }) => (
+    <tr style={{ ...rowBorder, background: '#fffdf0' }}>
+      {labelTd(label, false)}
+      <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{qk ? <Inp k={qk} /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
+      <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{pk ? <Inp k={pk} ph="kg" /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
+      <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{ik ? <Inp k={ik} ph="€" /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
+    </tr>
+  );
+  const MixedRow = ({ label, q, p, ik }) => (
+    <tr style={{ ...rowBorder, background: '#fffdf0' }}>
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{tdM(ik, '€')}
+    </tr>
+  );
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 80, background: '#f8fafc' }}>
+      <div style={{ background: '#0891b2', padding: '14px 16px 12px' }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>SIP Consultors</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>Informe mensual de dades productives</div>
+      </div>
+
+      {/* Selector de mes */}
+      <div style={{ padding: '10px 12px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: 8 }}>
+        <select value={mes} onChange={e => setMes(Number(e.target.value))} style={{ flex: 1, padding: '8px 10px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 14, background: '#f8fafc' }}>
+          {MESOS.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+        </select>
+        <select value={any} onChange={e => setAny(Number(e.target.value))} style={{ width: 88, padding: '8px 10px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 14, background: '#f8fafc' }}>
+          {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+
+      {/* Llegenda */}
+      <div style={{ display: 'flex', gap: 14, padding: '8px 14px', fontSize: 10, color: '#64748b', background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0891b2', display: 'inline-block' }} /> Calculat automàticament</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, background: '#fef9c3', border: '1px solid #ca8a04', borderRadius: 2, display: 'inline-block' }} /> Entrada manual</span>
+      </div>
+
+      {/* Taula */}
+      <div style={{ margin: '12px 10px 0', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <tbody>
+            <SecHead t="MARES" />
+            <ColHead />
+            <AutoRow  label="Garrins desmamats" q={garDes} />
+            <ManualRow label="Garrins nascuts vius" qk="garNasc" />
+            <ManualRow label="Parts" qk="parts" />
+            <ManualRow label="Deslletaments" qk="deslletaments" />
+            <AutoRow  label="Cens final de mes (Productives)" q={mr.final} />
+            <AutoRow  label="Cens inici de mes (Presents)" q={mr.inici} />
+            <ManualRow label="Futures — compra (granja externa)" qk="futCompCaps" ik="futCompImp" />
+            <ManualRow label="Futures — autorep (engreix propi)" qk="futAutorepCaps" ik="futAutorepImp" />
+            <ManualRow label="Royalties" ik="royalties" />
+            <MixedRow label="Mares → escorxador (venda)" q={mrEscorxCaps} p={mrEscorxKg} ik="maresEscorxImp" />
+            <AutoRow  label="Cens final de mes (Presents)" q={mr.final} />
+            <ManualRow label="Pinso Lactants" pk="pinsoLactKg" ik="pinsoLactImp" />
+            <ManualRow label="Pinso Gestants" pk="pinsoGestKg" ik="pinsoGestImp" />
+            <ManualRow label="Dosis / Cubricions" qk="dosis" />
+            <ManualRow label="Verros" qk="verros" ik="verrosImp" />
+            <ManualRow label="Medicaments" ik="medicaments" />
+            <ManualRow label="Pinso Garrins paridera" pk="pinsoPariKg" ik="pinsoPariImp" />
+
+            <SecHead t="TRANSICIÓ" />
+            <ColHead />
+            <AutoRow  label="Existències inici de mes" q={tr.inici} />
+            <AutoRow  label="Animals entrats durant el mes" q={tr.entCaps} p={tr.entKg} />
+            <AutoRow  label="Animals sortits durant el mes" q={tr.sorCaps} p={tr.sorKg} />
+            <AutoRow  label="Existències finals de mes" q={tr.final} />
+            <AutoRow  label="Baixes durant el mes" q={tr.baixes} />
+
+            <SecHead t="PRE-ENGREIX + ENGREIX" />
+            <ColHead />
+            <AutoRow  label="Existències inici de mes" q={pe.inici} />
+            <AutoRow  label="Animals entrats durant el mes" q={pe.entCaps} p={pe.entKg} />
+            <AutoRow  label="Animals sortits durant el mes" q={pe.sorCaps} p={pe.sorKg} />
+            <AutoRow  label="Existències finals de mes" q={pe.final} />
+            <AutoRow  label="Baixes durant el mes" q={pe.baixes} />
+          </tbody>
+        </table>
+      </div>
+
+      {/* Botons */}
+      <div style={{ padding: '14px 10px 16px', display: 'flex', gap: 10 }}>
+        <button onClick={guardar} style={{ flex: 1, padding: '14px', background: '#0891b2', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>💾 Guardar</button>
+        <button onClick={exportarCSV} style={{ flex: 1, padding: '14px', background: '#1D9E75', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>📊 Exportar CSV</button>
+      </div>
+    </div>
+  );
+}
+
 // ── Dashboard ──────────────────────────────────────────────────────────────
 function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const fasesOrdre = ["transicio", "preengreix", "engreix", "mares"];
@@ -1411,9 +1619,10 @@ function AppInterna() {
         {nav === "lots" && lotId && fase !== "desmamats" && <LotDetall />}
         {nav === "exportacio" && <PantallaExportacio data={data} />}
         {nav === "tracabilitat" && <PantallaTracabilitat data={data} />}
+        {nav === "sip" && <PantallaSIP data={data} toast={toast} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
-        {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["alertes", "🔔", "Alertes"], ["tracabilitat", "🔗", "Traça"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
+        {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["alertes", "🔔", "Alertes"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
           <button key={k} onClick={() => { setNav(k); if (k === "lots") setLotId(null); }} style={{ flex: 1, padding: "10px 0 14px", border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <span style={{ fontSize: 20, position: "relative" }}>{icon}{k === "alertes" && novesAlertes.length > 0 && <span style={{ position: "absolute", top: -4, right: -6, width: 16, height: 16, background: nCrit > 0 ? "#E24B4A" : "#BA7517", color: "#fff", borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{novesAlertes.length}</span>}</span>
             <span style={{ fontSize: 10, color: nav === k ? fc.color : "#aaa", fontWeight: nav === k ? 700 : 400 }}>{lbl}</span>
