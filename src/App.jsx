@@ -897,8 +897,9 @@ function PantallaSIP({ data, toast }) {
   };
   const maresLots = lotsOf('mares');
   const mr = calc(maresLots);
-  const garDes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM)
-    .reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).reduce((ss, g) => ss + (g || 0), 0), 0);
+  const desmamatsMes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM);
+  const garDes = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).reduce((ss, g) => ss + (g || 0), 0), 0);
+  const deslletaments = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).filter(g => g > 0).length, 0);
   const mrEscorxCaps = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0);
   const mrEscorxKg   = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0);
 
@@ -915,7 +916,7 @@ function PantallaSIP({ data, toast }) {
       r('Garrins desmamats', n0(garDes),''),
       r('Garrins nascuts vius', f(m.garNasc),''),
       r('Parts', f(m.parts),''),
-      r('Deslletaments', f(m.deslletaments),''),
+      r('Deslletaments (truges destetades)', n0(deslletaments),''),
       r('Cens FINAL MES (Productives)', n0(mr.final),''),
       r('Cens INI MES (Presents)', n0(mr.inici),''),
       r('Futures — compra (granja externa)', f(m.futCompCaps),''),
@@ -1021,7 +1022,7 @@ function PantallaSIP({ data, toast }) {
             <AutoRow  label="Garrins desmamats" q={garDes} />
             <ManualRow label="Garrins nascuts vius" qk="garNasc" />
             <ManualRow label="Parts" qk="parts" />
-            <ManualRow label="Deslletaments" qk="deslletaments" />
+            <AutoRow   label="Deslletaments (truges destetades)" q={deslletaments} />
             <AutoRow  label="Cens final de mes (Productives)" q={mr.final} />
             <AutoRow  label="Cens inici de mes (Presents)" q={mr.inici} />
             <ManualRow label="Futures — compra (granja externa)" qk="futCompCaps" />
