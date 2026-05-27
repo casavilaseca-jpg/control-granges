@@ -1110,21 +1110,28 @@ function AppInterna() {
   };
 
   const handleEntrada = async vals => {
-    if (!vals.data || !vals.caps || !vals.pesKg) return;
-    const { error } = await supabase.from("entrades").insert({ lot_id: lotId, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), origen: vals.origen || "" });
+    if (!vals.data || !vals.caps) return;
+    const caps = parseInt(vals.caps);
+    let pesKg = parseFloat(vals.pesKg) || 0;
+    if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
+    const { error } = await supabase.from("entrades").insert({ lot_id: lotId, data: vals.data, caps, pes_kg: pesKg, origen: vals.origen || "" });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
     toast("Entrada registrada ✓"); setModal(null);
   };
 
   const handleSortida = async vals => {
-    if (!vals.data || !vals.caps || !vals.pesKg) return;
+    if (!vals.data || !vals.caps) return;
+    const caps = parseInt(vals.caps);
+    let pesKg = parseFloat(vals.pesKg) || 0;
+    if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
+    if (!pesKg) return;
     const destiLotId = vals.tipusDesti === "lot" ? vals.destiLot : null;
     const de = vals.tipusDesti === "lot" ? lotsPerDesti.find(x => x.value === vals.destiLot)?.label || "" : vals.desti || "";
-    const { error } = await supabase.from("sortides").insert({ lot_id: lotId, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), tipus_desti: vals.tipusDesti, desti: de });
+    const { error } = await supabase.from("sortides").insert({ lot_id: lotId, data: vals.data, caps, pes_kg: pesKg, tipus_desti: vals.tipusDesti, desti: de });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
     if (destiLotId) {
       const origenNom = (granja?.nom || "") + " / " + (lot?.nom || "");
-      await supabase.from("entrades").insert({ lot_id: destiLotId, data: vals.data, caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg), origen: origenNom });
+      await supabase.from("entrades").insert({ lot_id: destiLotId, data: vals.data, caps, pes_kg: pesKg, origen: origenNom });
       const newData = await carregarTot(); setData(newData);
       toast("Sortida registrada i entrada creada al lot destí ✓"); setModal(null);
     } else {
@@ -1132,7 +1139,7 @@ function AppInterna() {
     }
     if (vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix" || vals.tipusDesti === "nouMares") {
       const faseDesti = vals.tipusDesti === "nouPreengreix" ? "preengreix" : vals.tipusDesti === "nouMares" ? "mares" : "engreix";
-      setSortidaPendent({ data: vals.data, caps: parseInt(vals.caps), pesKg: parseFloat(vals.pesKg), origenNom: (granja?.nom || "") + " / " + (lot?.nom || ""), faseDesti, parentLotId: lotId });
+      setSortidaPendent({ data: vals.data, caps, pesKg, origenNom: (granja?.nom || "") + " / " + (lot?.nom || ""), faseDesti, parentLotId: lotId });
     }
   };
 
@@ -1181,7 +1188,10 @@ function AppInterna() {
 
   const handleEditarEntrada = async vals => {
     if (!vals.caps) return;
-    await supabase.from("entrades").update({ caps: parseInt(vals.caps), pes_kg: parseFloat(vals.pesKg) || 0 }).eq("id", editantEntrada.id);
+    const caps = parseInt(vals.caps);
+    let pesKg = parseFloat(vals.pesKg) || 0;
+    if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
+    await supabase.from("entrades").update({ caps, pes_kg: pesKg }).eq("id", editantEntrada.id);
     const newData = await carregarTot(); setData(newData);
     toast("Entrada actualitzada ✓"); setModal(null); setEditantEntrada(null);
   };
@@ -1411,17 +1421,34 @@ function AppInterna() {
         ))}
       </div>
 
-      {modal === "entrada" && <ModalForm title="Nova entrada" confirmLabel="Registrar entrada" confirmColor={fc.color} capsActuals={stats?.tCE} fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", placeholder: "Nombre de porcs" }, { key: "pesKg", label: "Pes total (kg)", type: "number", inputMode: "decimal" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]} onConfirm={handleEntrada} onCancel={() => setModal(null)} />}
+      {modal === "entrada" && <ModalForm title="Nova entrada" confirmLabel="Registrar entrada" confirmColor={fc.color} capsActuals={stats?.tCE}
+        fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", placeholder: "Nombre de porcs" }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 6.5" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]}
+        extraContent={(vals) => {
+          const caps = parseInt(vals.caps) || 0;
+          const pp = parseFloat(vals.pesPorc) || 0;
+          const pt = parseFloat(vals.pesKg) || 0;
+          if (pp > 0 && caps > 0 && !pt) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>;
+          if (pt > 0 && caps > 0) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>;
+          return null;
+        }}
+        onConfirm={handleEntrada} onCancel={() => setModal(null)} />}
 
       {modal === "sortida" && <ModalForm title="Nova sortida" confirmLabel="Registrar sortida" confirmColor="#1A4DB0" capsActuals={stats?.cap}
-        fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric" }, { key: "pesKg", label: "Pes total (kg)", type: "number", inputMode: "decimal" }, { key: "tipusDesti", label: "Tipus de destí", type: "select", default: defaultDesti(fase), options: destiOptions(fase) }]}
-        extraContent={(vals, setVals) => (
-          <div>
-            {(vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") && <div style={{ marginBottom: 14, background: "rgba(29,158,117,0.15)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(29,158,117,0.3)" }}><div style={{ fontSize: 13, color: "#a0f0d0", fontWeight: 600, marginBottom: 4 }}>✨ Flux automàtic</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{vals.tipusDesti === "nouPreengreix" ? "Es crearà un nou lot de pre-engreix automàticament." : "Es crearà un nou lot d'engreix directament."}</div></div>}
-            {vals.tipusDesti === "lot" && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Lot de destí</label><select value={vals.destiLot || ""} onChange={e => setVals(v => ({ ...v, destiLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}><option value="">— Selecciona —</option>{lotsPerDesti.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>}
-            {(vals.tipusDesti === "escorxador" || vals.tipusDesti === "altre") && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{vals.tipusDesti === "escorxador" ? "Nom escorxador (opcional)" : "Destí (opcional)"}</label><input type="text" value={vals.desti || ""} onChange={e => setVals(v => ({ ...v, desti: e.target.value }))} placeholder={vals.tipusDesti === "escorxador" ? "Ex: Escorxador Girona" : "Ex: Venda directa"} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} /></div>}
-          </div>
-        )}
+        fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric" }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 95.0" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal" }, { key: "tipusDesti", label: "Tipus de destí", type: "select", default: defaultDesti(fase), options: destiOptions(fase) }]}
+        extraContent={(vals, setVals) => {
+          const caps = parseInt(vals.caps) || 0;
+          const pp = parseFloat(vals.pesPorc) || 0;
+          const pt = parseFloat(vals.pesKg) || 0;
+          return (
+            <div>
+              {pp > 0 && caps > 0 && !pt && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>}
+              {pt > 0 && caps > 0 && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>}
+              {(vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") && <div style={{ marginBottom: 14, background: "rgba(29,158,117,0.15)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(29,158,117,0.3)" }}><div style={{ fontSize: 13, color: "#a0f0d0", fontWeight: 600, marginBottom: 4 }}>✨ Flux automàtic</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{vals.tipusDesti === "nouPreengreix" ? "Es crearà un nou lot de pre-engreix automàticament." : "Es crearà un nou lot d'engreix directament."}</div></div>}
+              {vals.tipusDesti === "lot" && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Lot de destí</label><select value={vals.destiLot || ""} onChange={e => setVals(v => ({ ...v, destiLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}><option value="">— Selecciona —</option>{lotsPerDesti.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>}
+              {(vals.tipusDesti === "escorxador" || vals.tipusDesti === "altre") && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{vals.tipusDesti === "escorxador" ? "Nom escorxador (opcional)" : "Destí (opcional)"}</label><input type="text" value={vals.desti || ""} onChange={e => setVals(v => ({ ...v, desti: e.target.value }))} placeholder={vals.tipusDesti === "escorxador" ? "Ex: Escorxador Girona" : "Ex: Venda directa"} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} /></div>}
+            </div>
+          );
+        }}
         onConfirm={handleSortida} onCancel={() => setModal(null)} />}
 
       {modal === "baixa" && <ModalForm title="Registrar baixa" confirmLabel="Confirmar baixa" confirmColor="#C0392B" fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", placeholder: "Quants animals?" }, { key: "causa", label: "Causa (opcional)", type: "text", placeholder: "Ex: Diarrea, Respiratòria..." }]} onConfirm={handleBaixa} onCancel={() => setModal(null)} />}
@@ -1435,7 +1462,15 @@ function AppInterna() {
         onConfirm={handleEditarLot} onCancel={() => setModal(null)} />}
 
       {modal === "editarEntrada" && editantEntrada && <ModalForm title="Editar entrada" confirmLabel="Guardar canvis" confirmColor={fc.color} capsActuals={editantEntrada.caps}
-        fields={[{ key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesKg", label: "Pes total (kg)", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
+        fields={[{ key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 6.5" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
+        extraContent={(vals) => {
+          const caps = parseInt(vals.caps) || 0;
+          const pp = parseFloat(vals.pesPorc) || 0;
+          const pt = parseFloat(vals.pesKg) || 0;
+          if (pp > 0 && caps > 0 && !pt) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>;
+          if (pt > 0 && caps > 0) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>;
+          return null;
+        }}
         onConfirm={handleEditarEntrada} onCancel={() => { setModal(null); setEditantEntrada(null); }} />}
 
       {modal === "novaGranja" && <ModalForm title="Nova granja" confirmLabel="Crear granja" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom de la granja", type: "text", placeholder: "Ex: Granja Can Puig" }]} onConfirm={handleNovaGranja} onCancel={() => setModal(null)} />}
