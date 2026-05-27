@@ -892,40 +892,38 @@ function PantallaSIP({ data, toast }) {
 
   const exportarCSV = () => {
     const m = manual; const f = v => (v != null && v !== '') ? String(v) : '';
-    const r = (lbl, q, p, i) => `"${lbl}","${f(q)}","${f(p)}","${f(i)}"`;
+    const r = (lbl, q, p) => `"${lbl}","${f(q)}","${f(p)}"`;
     const n0 = v => (v && v > 0) ? Math.round(v) : '';
     const lines = [
       `"INFORME SIP — ${MESOS[mes-1]} ${any}"`,
-      `"","Quantitat","Pes Total (kg)","Import (€)"`,
+      `"","Quantitat","Pes Total (kg)"`,
       '"MARES"',
-      r('Garrins desmamats', n0(garDes),'',''),
-      r('Garrins nascuts vius', f(m.garNasc),'',''),
-      r('Parts', f(m.parts),'',''),
-      r('Deslletaments', f(m.deslletaments),'',''),
-      r('Cens FINAL MES (Productives)', n0(mr.final),'',''),
-      r('Cens INI MES (Presents)', n0(mr.inici),'',''),
-      r('Futures — compra (granja externa)', f(m.futCompCaps),'',f(m.futCompImp)),
-      r('Futures — autorep (engreix propi)', f(m.futAutorepCaps),'',f(m.futAutorepImp)),
-      r('Royalties','','',f(m.royalties)),
-      r('Mares → escorxador (venda)', n0(mrEscorxCaps), n0(mrEscorxKg), f(m.maresEscorxImp)),
-      r('Pinso Lactants','',f(m.pinsoLactKg),f(m.pinsoLactImp)),
-      r('Pinso Gestants','',f(m.pinsoGestKg),f(m.pinsoGestImp)),
-      r('Dosis / Cubricions', f(m.dosis),'',''),
-      r('Verros', f(m.verros),'',f(m.verrosImp)),
-      r('Medicaments','','',f(m.medicaments)),
-      r('Pinso Garrins paridera','',f(m.pinsoPariKg),f(m.pinsoPariImp)),
+      r('Garrins desmamats', n0(garDes),''),
+      r('Garrins nascuts vius', f(m.garNasc),''),
+      r('Parts', f(m.parts),''),
+      r('Deslletaments', f(m.deslletaments),''),
+      r('Cens FINAL MES (Productives)', n0(mr.final),''),
+      r('Cens INI MES (Presents)', n0(mr.inici),''),
+      r('Futures — compra (granja externa)', f(m.futCompCaps),''),
+      r('Futures — autorep (engreix propi)', f(m.futAutorepCaps),''),
+      r('Mares → escorxador (venda)', n0(mrEscorxCaps), n0(mrEscorxKg)),
+      r('Pinso Lactants','',f(m.pinsoLactKg)),
+      r('Pinso Gestants','',f(m.pinsoGestKg)),
+      r('Dosis / Cubricions', f(m.dosis),''),
+      r('Verros', f(m.verros),''),
+      r('Pinso Garrins paridera','',f(m.pinsoPariKg)),
       '"TRANSICIÓ"',
-      r('Existències inici de mes', n0(tr.inici),'',''),
-      r('Animals entrats durant el mes', n0(tr.entCaps), n0(tr.entKg),''),
-      r('Animals sortits durant el mes', n0(tr.sorCaps), n0(tr.sorKg),''),
-      r('Existències finals de mes', n0(tr.final),'',''),
-      r('Baixes durant el mes', n0(tr.baixes),'',''),
+      r('Existències inici de mes', n0(tr.inici),''),
+      r('Animals entrats durant el mes', n0(tr.entCaps), n0(tr.entKg)),
+      r('Animals sortits durant el mes', n0(tr.sorCaps), n0(tr.sorKg)),
+      r('Existències finals de mes', n0(tr.final),''),
+      r('Baixes durant el mes', n0(tr.baixes),''),
       '"PREENGREIX + ENGREIX"',
-      r('Existències inici de mes', n0(pe.inici),'',''),
-      r('Animals entrats durant el mes', n0(pe.entCaps), n0(pe.entKg),''),
-      r('Animals sortits durant el mes', n0(pe.sorCaps), n0(pe.sorKg),''),
-      r('Existències finals de mes', n0(pe.final),'',''),
-      r('Baixes durant el mes', n0(pe.baixes),'',''),
+      r('Existències inici de mes', n0(pe.inici),''),
+      r('Animals entrats durant el mes', n0(pe.entCaps), n0(pe.entKg)),
+      r('Animals sortits durant el mes', n0(pe.sorCaps), n0(pe.sorKg)),
+      r('Existències finals de mes', n0(pe.final),''),
+      r('Baixes durant el mes', n0(pe.baixes),''),
     ];
     const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a');
@@ -948,33 +946,32 @@ function PantallaSIP({ data, toast }) {
 
   const SecHead = ({ t }) => (
     <tr style={{ background: '#0891b2' }}>
-      <td colSpan={4} style={{ padding: '8px 12px', fontWeight: 800, fontSize: 13, color: '#fff', letterSpacing: '0.04em' }}>{t}</td>
+      <td colSpan={3} style={{ padding: '8px 12px', fontWeight: 800, fontSize: 13, color: '#fff', letterSpacing: '0.04em' }}>{t}</td>
     </tr>
   );
   const ColHead = () => (
     <tr style={{ background: '#e0f2fe', borderBottom: '2px solid #bae6fd' }}>
-      {['CONCEPTE', 'QUANT.', 'PES (kg)', 'IMPORT (€)'].map((h, i) => (
-        <td key={h} style={{ padding: '6px 6px 6px ' + (i===0?'10px':'0'), fontSize: 9, fontWeight: 700, color: '#0369a1', textAlign: i===0?'left':'right', width: i===0?'46%':'18%' }}>{h}</td>
+      {['CONCEPTE', 'QUANT.', 'PES (kg)'].map((h, i) => (
+        <td key={h} style={{ padding: '6px 6px 6px ' + (i===0?'10px':'0'), fontSize: 9, fontWeight: 700, color: '#0369a1', textAlign: i===0?'left':'right', width: i===0?'55%':'22.5%' }}>{h}</td>
       ))}
     </tr>
   );
   const rowBorder = { borderBottom: '1px solid #f1f5f9' };
   const AutoRow = ({ label, q, p }) => (
     <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{tdEmpty()}
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}
     </tr>
   );
-  const ManualRow = ({ label, qk, pk, ik }) => (
+  const ManualRow = ({ label, qk, pk }) => (
     <tr style={{ ...rowBorder, background: '#fffdf0' }}>
       {labelTd(label, false)}
       <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{qk ? <Inp k={qk} /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
       <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{pk ? <Inp k={pk} ph="kg" /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
-      <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{ik ? <Inp k={ik} ph="€" /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
     </tr>
   );
-  const MixedRow = ({ label, q, p, ik }) => (
-    <tr style={{ ...rowBorder, background: '#fffdf0' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{tdM(ik, '€')}
+  const MixedRow = ({ label, q, p }) => (
+    <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}
     </tr>
   );
 
@@ -1013,17 +1010,15 @@ function PantallaSIP({ data, toast }) {
             <ManualRow label="Deslletaments" qk="deslletaments" />
             <AutoRow  label="Cens final de mes (Productives)" q={mr.final} />
             <AutoRow  label="Cens inici de mes (Presents)" q={mr.inici} />
-            <ManualRow label="Futures — compra (granja externa)" qk="futCompCaps" ik="futCompImp" />
-            <ManualRow label="Futures — autorep (engreix propi)" qk="futAutorepCaps" ik="futAutorepImp" />
-            <ManualRow label="Royalties" ik="royalties" />
-            <MixedRow label="Mares → escorxador (venda)" q={mrEscorxCaps} p={mrEscorxKg} ik="maresEscorxImp" />
-            <AutoRow  label="Cens final de mes (Presents)" q={mr.final} />
-            <ManualRow label="Pinso Lactants" pk="pinsoLactKg" ik="pinsoLactImp" />
-            <ManualRow label="Pinso Gestants" pk="pinsoGestKg" ik="pinsoGestImp" />
+            <ManualRow label="Futures — compra (granja externa)" qk="futCompCaps" />
+            <ManualRow label="Futures — autorep (engreix propi)" qk="futAutorepCaps" />
+            <MixedRow  label="Mares → escorxador (venda)" q={mrEscorxCaps} p={mrEscorxKg} />
+            <AutoRow   label="Cens final de mes (Presents)" q={mr.final} />
+            <ManualRow label="Pinso Lactants" pk="pinsoLactKg" />
+            <ManualRow label="Pinso Gestants" pk="pinsoGestKg" />
             <ManualRow label="Dosis / Cubricions" qk="dosis" />
-            <ManualRow label="Verros" qk="verros" ik="verrosImp" />
-            <ManualRow label="Medicaments" ik="medicaments" />
-            <ManualRow label="Pinso Garrins paridera" pk="pinsoPariKg" ik="pinsoPariImp" />
+            <ManualRow label="Verros" qk="verros" />
+            <ManualRow label="Pinso Garrins paridera" pk="pinsoPariKg" />
 
             <SecHead t="TRANSICIÓ" />
             <ColHead />
