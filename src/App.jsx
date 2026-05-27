@@ -880,7 +880,21 @@ function PantallaSIP({ data, toast }) {
   });
 
   const tr = calc(lotsOf('transicio'));
-  const pe = calc([...lotsOf('preengreix'), ...lotsOf('engreix')]);
+  // Pre-engreix+Engreix tractat com a unitat tancada:
+  // - Entrades: només les que entren al Pre-engreix (des de Transició)
+  // - Sortides: només les que surten cap a escorxador (els moviments Pre→Engreix interns es cancel·len)
+  // - Existències inici/final: suma dels dos blocs
+  const peAll = [...lotsOf('preengreix'), ...lotsOf('engreix')];
+  const pePre = lotsOf('preengreix');
+  const pe = {
+    inici:   peAll.reduce((s, l) => s + capsAt(l, start), 0),
+    final:   peAll.reduce((s, l) => s + capsAt(l, nextM), 0),
+    entCaps: pePre.reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + e.caps, 0), 0),
+    entKg:   pePre.reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + (e.pesKg || 0), 0), 0),
+    sorCaps: peAll.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0),
+    sorKg:   peAll.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0),
+    baixes:  peAll.reduce((s, l) => s + during(l.baixes).reduce((ss, b) => ss + b.caps, 0), 0),
+  };
   const maresLots = lotsOf('mares');
   const mr = calc(maresLots);
   const garDes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM)
