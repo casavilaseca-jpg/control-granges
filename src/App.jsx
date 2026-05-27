@@ -906,6 +906,14 @@ function PantallaSIP({ data, toast }) {
   const engreixIds = new Set(lotsOf('engreix').map(l => l.id));
   const futAutorepCaps = maresLots.filter(l => engreixIds.has(l.parentLotId)).reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + e.caps, 0), 0);
   const futCompCaps    = maresLots.filter(l => !engreixIds.has(l.parentLotId)).reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + e.caps, 0), 0);
+  // Cens Mares: separem Productives vs Reposició vs No productives per nom de lot
+  const isReposicio   = l => /reposici/i.test(l.nom);
+  const isNoProductiv = l => /no.?product/i.test(l.nom);
+  const isProductiva  = l => !isReposicio(l) && !isNoProductiv(l);
+  const capsAtEnd = l => capsAt(l, nextM);
+  const mrFinalPresents    = maresLots.reduce((s, l) => s + capsAtEnd(l), 0);
+  const mrFinalProductives = maresLots.filter(isProductiva).reduce((s, l) => s + capsAtEnd(l), 0);
+  const mrIniciPresents    = maresLots.reduce((s, l) => s + capsAt(l, start), 0);
 
   const guardar = () => { localStorage.setItem(storageKey, JSON.stringify(manual)); toast("Dades guardades ✓"); };
 
@@ -921,8 +929,8 @@ function PantallaSIP({ data, toast }) {
       r('Garrins nascuts vius', f(m.garNasc),''),
       r('Parts', f(m.parts),''),
       r('Deslletaments (truges destetades)', n0(deslletaments),''),
-      r('Cens FINAL MES (Productives)', n0(mr.final),''),
-      r('Cens INI MES (Presents)', n0(mr.inici),''),
+      r('Cens FINAL MES (Productives)', n0(mrFinalProductives),''),
+      r('Cens INI MES (Presents)', n0(mrIniciPresents),''),
       r('Futures — compra (granja externa)', n0(futCompCaps),''),
       r('Futures — autorep (engreix propi)', n0(futAutorepCaps),''),
       r('Mares → escorxador (venda)', n0(mrEscorxCaps), n0(mrEscorxKg)),
@@ -1027,12 +1035,12 @@ function PantallaSIP({ data, toast }) {
             <ManualRow label="Garrins nascuts vius" qk="garNasc" />
             <ManualRow label="Parts" qk="parts" />
             <AutoRow   label="Deslletaments (truges destetades)" q={deslletaments} />
-            <AutoRow  label="Cens final de mes (Productives)" q={mr.final} />
-            <AutoRow  label="Cens inici de mes (Presents)" q={mr.inici} />
+            <AutoRow  label="Cens final de mes (Productives)" q={mrFinalProductives} />
+            <AutoRow  label="Cens inici de mes (Presents)" q={mrIniciPresents} />
             <AutoRow   label="Futures — compra (granja externa)" q={futCompCaps} />
             <AutoRow   label="Futures — autorep (engreix propi)" q={futAutorepCaps} />
             <MixedRow  label="Mares → escorxador (venda)" q={mrEscorxCaps} p={mrEscorxKg} />
-            <AutoRow   label="Cens final de mes (Presents)" q={mr.final} />
+            <AutoRow   label="Cens final de mes (Presents)" q={mrFinalPresents} />
             <ManualRow label="Pinso Lactants" pk="pinsoLactKg" />
             <ManualRow label="Pinso Gestants" pk="pinsoGestKg" />
             <ManualRow label="Dosis / Cubricions" qk="dosis" />
