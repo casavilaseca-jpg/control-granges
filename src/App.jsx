@@ -1284,13 +1284,20 @@ function AppInterna() {
   const [toasts, setToasts] = useState([]);
   const [showFaseMenu, setShowFaseMenu] = useState(false);
   const [confirmTancar, setConfirmTancar] = useState(false);
-  const [sortidaPendent, setSortidaPendent] = useState(null);
+  const [sortidaPendent, setSortidaPendent] = useState(() => {
+    try { const s = localStorage.getItem("cg_sortida_pendent"); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
   const [confirmarEliminar, setConfirmarEliminar] = useState(null);
   const [editantEntrada, setEditantEntrada] = useState(null);
 
   useEffect(() => {
     carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
   }, []);
+
+  useEffect(() => {
+    if (sortidaPendent) localStorage.setItem("cg_sortida_pendent", JSON.stringify(sortidaPendent));
+    else localStorage.removeItem("cg_sortida_pendent");
+  }, [sortidaPendent]);
 
   useEffect(() => {
     const taules = ["granges", "lots", "entrades", "sortides", "baixes", "tractaments", "desmamats"];
