@@ -426,6 +426,64 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
   </>);
 }
 
+// ── Notes ──────────────────────────────────────────────────────────────────
+const NOTES_KEY = "cg_notes";
+function PantallaNotes() {
+  const [notes, setNotes] = useState(() => { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || "[]"); } catch { return []; } });
+  const [text, setText] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [editText, setEditText] = useState("");
+
+  const guardar = () => {
+    if (!text.trim()) return;
+    const noves = [{ id: Date.now(), text: text.trim(), data: TODAY }, ...notes];
+    setNotes(noves); localStorage.setItem(NOTES_KEY, JSON.stringify(noves)); setText("");
+  };
+  const eliminar = id => { const noves = notes.filter(n => n.id !== id); setNotes(noves); localStorage.setItem(NOTES_KEY, JSON.stringify(noves)); };
+  const guardarEdit = id => {
+    if (!editText.trim()) return;
+    const noves = notes.map(n => n.id === id ? { ...n, text: editText.trim() } : n);
+    setNotes(noves); localStorage.setItem(NOTES_KEY, JSON.stringify(noves)); setEditId(null);
+  };
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 100px" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Notes</div>
+      <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Apunts ràpids per a la gestió de la granja.</div>
+      <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "14px", marginBottom: 20 }}>
+        <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && e.metaKey) guardar(); }} placeholder="Escriu una nota…" rows={3} style={{ width: "100%", border: "none", background: "transparent", fontSize: 15, color: "#0f172a", resize: "none", outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+          <button onClick={guardar} disabled={!text.trim()} style={{ padding: "9px 22px", background: text.trim() ? "#10b981" : "#e2e8f0", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, color: text.trim() ? "#fff" : "#aaa", cursor: text.trim() ? "pointer" : "default" }}>Guardar</button>
+        </div>
+      </div>
+      {notes.length === 0 ? (
+        <div style={{ textAlign: "center", color: "#bbb", fontSize: 14, marginTop: 48 }}>📝<br />Cap nota encara</div>
+      ) : notes.map(n => (
+        <div key={n.id} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ fontSize: 11, color: "#aaa", marginBottom: 6 }}>{n.data}</div>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+              <button onClick={() => { setEditId(n.id); setEditText(n.text); }} style={{ border: "none", background: "transparent", color: "#94a3b8", fontSize: 14, cursor: "pointer", padding: 2 }}>✏️</button>
+              <button onClick={() => eliminar(n.id)} style={{ border: "none", background: "transparent", color: "#fca5a5", fontSize: 14, cursor: "pointer", padding: 2 }}>🗑️</button>
+            </div>
+          </div>
+          {editId === n.id ? (
+            <div>
+              <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={3} style={{ width: "100%", border: "1.5px solid #10b981", borderRadius: 8, padding: "8px", fontSize: 14, color: "#0f172a", resize: "none", outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <button onClick={() => guardarEdit(n.id)} style={{ flex: 1, padding: "8px", background: "#10b981", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer" }}>Guardar</button>
+                <button onClick={() => setEditId(null)} style={{ flex: 1, padding: "8px", background: "#f1f5f9", border: "none", borderRadius: 8, fontSize: 13, color: "#64748b", cursor: "pointer" }}>Cancel·lar</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 15, color: "#0f172a", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{n.text}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Alertes ────────────────────────────────────────────────────────────────
 function PantallaAlertes({ data, onLotClick, dismissed, onDismiss }) {
   const totes = Object.entries(data).filter(([f]) => f !== "desmamats").flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
@@ -1651,6 +1709,7 @@ function AppInterna() {
         </div>
       )}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={() => showFaseMenu && setShowFaseMenu(false)}>
+        {nav === "notes" && <PantallaNotes />}
         {nav === "alertes" && <PantallaAlertes data={data} dismissed={dismissed} onDismiss={a => setDismissed(s => new Set([...s, `${a.fase}-${a.granja}-${a.lot}-${a.regla}`]))} onLotClick={a => { const g = (data[a.fase] || []).find(g => g.nom === a.granja); if (g) { setFase(a.fase); setGranjaId(g.id); const l = g.lots.find(l => l.nom === a.lot); if (l) { setLotId(l.id); setTabLot("resum"); setNav("lots"); } } }} />}
         {nav === "global" && <PantallaDashboard data={data} totesAlertes={totesAlertes} dismissed={dismissed} onLotClick={(f, gid, lid) => { setFase(f); if (gid) { setGranjaId(gid); setLotId(lid || null); setTabLot("resum"); } setNav("lots"); }} />}
         {nav === "lots" && !lotId && fase !== "desmamats" && <LlistaLots />}
@@ -1661,9 +1720,9 @@ function AppInterna() {
         {nav === "sip" && <PantallaSIP data={data} toast={toast} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
-        {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["alertes", "🔔", "Alertes"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
+        {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["notes", "📝", "Notes"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
           <button key={k} onClick={() => { setNav(k); if (k === "lots") setLotId(null); }} style={{ flex: 1, padding: "10px 0 14px", border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-            <span style={{ fontSize: 20, position: "relative" }}>{icon}{k === "alertes" && novesAlertes.length > 0 && <span style={{ position: "absolute", top: -4, right: -6, width: 16, height: 16, background: nCrit > 0 ? "#E24B4A" : "#BA7517", color: "#fff", borderRadius: "50%", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{novesAlertes.length}</span>}</span>
+            <span style={{ fontSize: 20, position: "relative" }}>{icon}</span>
             <span style={{ fontSize: 10, color: nav === k ? fc.color : "#aaa", fontWeight: nav === k ? 700 : 400 }}>{lbl}</span>
           </button>
         ))}
