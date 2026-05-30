@@ -426,60 +426,100 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
   </>);
 }
 
-// ── Notes ──────────────────────────────────────────────────────────────────
-const NOTES_KEY = "cg_notes";
-function PantallaNotes() {
-  const [notes, setNotes] = useState(() => { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || "[]"); } catch { return []; } });
+// ── Tasques ────────────────────────────────────────────────────────────────
+function PantallaTasques() {
+  const [tasques, setTasques] = useState([]);
   const [text, setText] = useState("");
-  const [editId, setEditId] = useState(null);
-  const [editText, setEditText] = useState("");
+  const [carregant, setCarregant] = useState(true);
+  const [autor, setAutor] = useState("");
+  const [mostrarFetes, setMostrarFetes] = useState(false);
 
-  const guardar = () => {
+  const carregar = useCallback(async () => {
+    const { data } = await supabase.from("tasques").select("*").order("created_at", { ascending: false });
+    setTasques(data || []); setCarregant(false);
+  }, []);
+
+  useEffect(() => {
+    carregar();
+    supabase.auth.getUser().then(({ data: { user } }) => setAutor(user?.email || ""));
+    const sub = supabase.channel("rt_tasques")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasques" }, carregar)
+      .subscribe();
+    return () => supabase.removeChannel(sub);
+  }, [carregar]);
+
+  const afegir = async () => {
     if (!text.trim()) return;
-    const noves = [{ id: Date.now(), text: text.trim(), data: TODAY }, ...notes];
-    setNotes(noves); localStorage.setItem(NOTES_KEY, JSON.stringify(noves)); setText("");
+    await supabase.from("tasques").insert({ text: text.trim(), feta: false, data: TODAY, autor });
+    setText("");
   };
-  const eliminar = id => { const noves = notes.filter(n => n.id !== id); setNotes(noves); localStorage.setItem(NOTES_KEY, JSON.stringify(noves)); };
-  const guardarEdit = id => {
-    if (!editText.trim()) return;
-    const noves = notes.map(n => n.id === id ? { ...n, text: editText.trim() } : n);
-    setNotes(noves); localStorage.setItem(NOTES_KEY, JSON.stringify(noves)); setEditId(null);
+
+  const toggleFeta = async (id, feta) => {
+    await supabase.from("tasques").update({ feta: !feta }).eq("id", id);
   };
+
+  const eliminar = async id => {
+    await supabase.from("tasques").delete().eq("id", id);
+  };
+
+  const pendents = tasques.filter(t => !t.feta);
+  const fetes = tasques.filter(t => t.feta);
+
+  const TarjetaTasca = ({ t }) => (
+    <div style={{ background: t.feta ? "#f8fafc" : "#fff", border: "1px solid " + (t.feta ? "#e2e8f0" : "#d1fae5"), borderRadius: 14, padding: "14px", marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
+      <button onClick={() => toggleFeta(t.id, t.feta)} style={{ flexShrink: 0, marginTop: 2, width: 24, height: 24, borderRadius: 6, border: "2px solid " + (t.feta ? "#10b981" : "#cbd5e1"), background: t.feta ? "#10b981" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#fff" }}>
+        {t.feta ? "✓" : ""}
+      </button>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, color: t.feta ? "#94a3b8" : "#0f172a", lineHeight: 1.5, textDecoration: t.feta ? "line-through" : "none", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{t.text}</div>
+        <div style={{ fontSize: 11, color: "#aaa", marginTop: 5, display: "flex", gap: 8 }}>
+          <span>{t.data}</span>
+          {t.autor && <span>· {t.autor.split("@")[0]}</span>}
+        </div>
+      </div>
+      {t.feta && (
+        <button onClick={() => eliminar(t.id)} style={{ flexShrink: 0, border: "none", background: "transparent", color: "#fca5a5", fontSize: 16, cursor: "pointer", padding: 2 }}>🗑️</button>
+      )}
+    </div>
+  );
 
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 100px" }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Notes</div>
-      <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Apunts ràpids per a la gestió de la granja.</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>Tasques</div>
+        {pendents.length > 0 && <div style={{ fontSize: 12, fontWeight: 600, color: "#10b981", background: "#d1fae5", borderRadius: 20, padding: "3px 10px" }}>{pendents.length} pendents</div>}
+      </div>
+      <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Llista compartida entre tots els empleats · s'actualitza en temps real</div>
+
+      {/* Nova tasca */}
       <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "14px", marginBottom: 20 }}>
-        <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && e.metaKey) guardar(); }} placeholder="Escriu una nota…" rows={3} style={{ width: "100%", border: "none", background: "transparent", fontSize: 15, color: "#0f172a", resize: "none", outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
-          <button onClick={guardar} disabled={!text.trim()} style={{ padding: "9px 22px", background: text.trim() ? "#10b981" : "#e2e8f0", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, color: text.trim() ? "#fff" : "#aaa", cursor: text.trim() ? "pointer" : "default" }}>Guardar</button>
+        <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); afegir(); } }} placeholder="Nova tasca… (Enter per guardar)" rows={2} style={{ width: "100%", border: "none", background: "transparent", fontSize: 15, color: "#0f172a", resize: "none", outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+          <button onClick={afegir} disabled={!text.trim()} style={{ padding: "8px 20px", background: text.trim() ? "#10b981" : "#e2e8f0", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, color: text.trim() ? "#fff" : "#aaa", cursor: text.trim() ? "pointer" : "default" }}>Afegir</button>
         </div>
       </div>
-      {notes.length === 0 ? (
-        <div style={{ textAlign: "center", color: "#bbb", fontSize: 14, marginTop: 48 }}>📝<br />Cap nota encara</div>
-      ) : notes.map(n => (
-        <div key={n.id} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-            <div style={{ fontSize: 11, color: "#aaa", marginBottom: 6 }}>{n.data}</div>
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              <button onClick={() => { setEditId(n.id); setEditText(n.text); }} style={{ border: "none", background: "transparent", color: "#94a3b8", fontSize: 14, cursor: "pointer", padding: 2 }}>✏️</button>
-              <button onClick={() => eliminar(n.id)} style={{ border: "none", background: "transparent", color: "#fca5a5", fontSize: 14, cursor: "pointer", padding: 2 }}>🗑️</button>
+
+      {/* Pendents */}
+      {carregant ? (
+        <div style={{ textAlign: "center", color: "#aaa", fontSize: 14, marginTop: 32 }}>Carregant…</div>
+      ) : pendents.length === 0 && fetes.length === 0 ? (
+        <div style={{ textAlign: "center", color: "#bbb", fontSize: 14, marginTop: 48 }}>✅<br /><br />Cap tasca pendent.<br />Bona feina!</div>
+      ) : (
+        <>
+          {pendents.length === 0 && <div style={{ textAlign: "center", color: "#10b981", fontSize: 14, marginBottom: 20, fontWeight: 600 }}>✅ Totes les tasques fetes!</div>}
+          {pendents.map(t => <TarjetaTasca key={t.id} t={t} />)}
+
+          {/* Fetes */}
+          {fetes.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <button onClick={() => setMostrarFetes(v => !v)} style={{ background: "transparent", border: "none", fontSize: 13, color: "#94a3b8", cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <span>{mostrarFetes ? "▾" : "▸"}</span> Fetes ({fetes.length})
+              </button>
+              {mostrarFetes && fetes.map(t => <TarjetaTasca key={t.id} t={t} />)}
             </div>
-          </div>
-          {editId === n.id ? (
-            <div>
-              <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={3} style={{ width: "100%", border: "1.5px solid #10b981", borderRadius: 8, padding: "8px", fontSize: 14, color: "#0f172a", resize: "none", outline: "none", fontFamily: "var(--font-sans)", boxSizing: "border-box" }} />
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <button onClick={() => guardarEdit(n.id)} style={{ flex: 1, padding: "8px", background: "#10b981", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer" }}>Guardar</button>
-                <button onClick={() => setEditId(null)} style={{ flex: 1, padding: "8px", background: "#f1f5f9", border: "none", borderRadius: 8, fontSize: 13, color: "#64748b", cursor: "pointer" }}>Cancel·lar</button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ fontSize: 15, color: "#0f172a", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{n.text}</div>
           )}
-        </div>
-      ))}
+        </>
+      )}
     </div>
   );
 }
@@ -1709,7 +1749,7 @@ function AppInterna() {
         </div>
       )}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={() => showFaseMenu && setShowFaseMenu(false)}>
-        {nav === "notes" && <PantallaNotes />}
+        {nav === "notes" && <PantallaTasques />}
         {nav === "alertes" && <PantallaAlertes data={data} dismissed={dismissed} onDismiss={a => setDismissed(s => new Set([...s, `${a.fase}-${a.granja}-${a.lot}-${a.regla}`]))} onLotClick={a => { const g = (data[a.fase] || []).find(g => g.nom === a.granja); if (g) { setFase(a.fase); setGranjaId(g.id); const l = g.lots.find(l => l.nom === a.lot); if (l) { setLotId(l.id); setTabLot("resum"); setNav("lots"); } } }} />}
         {nav === "global" && <PantallaDashboard data={data} totesAlertes={totesAlertes} dismissed={dismissed} onLotClick={(f, gid, lid) => { setFase(f); if (gid) { setGranjaId(gid); setLotId(lid || null); setTabLot("resum"); } setNav("lots"); }} />}
         {nav === "lots" && !lotId && fase !== "desmamats" && <LlistaLots />}
@@ -1720,7 +1760,7 @@ function AppInterna() {
         {nav === "sip" && <PantallaSIP data={data} toast={toast} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
-        {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["notes", "📝", "Notes"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
+        {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["notes", "✅", "Tasques"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
           <button key={k} onClick={() => { setNav(k); if (k === "lots") setLotId(null); }} style={{ flex: 1, padding: "10px 0 14px", border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <span style={{ fontSize: 20, position: "relative" }}>{icon}</span>
             <span style={{ fontSize: 10, color: nav === k ? fc.color : "#aaa", fontWeight: nav === k ? 700 : 400 }}>{lbl}</span>
