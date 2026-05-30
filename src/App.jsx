@@ -226,7 +226,7 @@ function downloadCsv(csv, nom) {
 }
 
 // ── Exportació ─────────────────────────────────────────────────────────────
-function PantallaExportacio({ data }) {
+function PantallaExportacio({ data, onLogout }) {
   const [filtFases, setFiltFases] = useState(["transicio", "preengreix", "engreix", "mares"]);
   const [filtEstat, setFiltEstat] = useState("tots");
   const [filtTipus, setFiltTipus] = useState(["resum", "entrades", "sortides", "baixes", "tractaments"]);
@@ -278,11 +278,12 @@ function PantallaExportacio({ data }) {
         style={{ width: "100%", padding: "16px", background: filtFases.length > 0 && filtTipus.length > 0 ? "#1D9E75" : "#ccc", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <span style={{ fontSize: 20 }}>⬇️</span> Descarregar CSV
       </button>
-      <div style={{ background: "#EEF4FF", borderRadius: 12, padding: "12px 14px", fontSize: 12, color: "#555", lineHeight: 1.5 }}>
+      <div style={{ background: "#EEF4FF", borderRadius: 12, padding: "12px 14px", fontSize: 12, color: "#555", lineHeight: 1.5, marginBottom: 20 }}>
         <div style={{ fontWeight: 600, marginBottom: 4, color: "#1A4DB0" }}>💡 Com obrir-ho a Excel o Google Sheets</div>
         <div>1. Toca "Descarregar CSV"</div>
         <div>2. Obre amb Excel o puja a Google Drive → Sheets</div>
       </div>
+      <button onClick={onLogout} style={{ width: "100%", padding: "14px", background: "transparent", border: "1.5px solid #e2e8f0", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#94a3b8", cursor: "pointer" }}>🔒 Tancar sessió</button>
     </div>
   );
 }
@@ -460,14 +461,18 @@ function PantallaAlertes({ data, onLotClick, dismissed, onDismiss }) {
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────
-function PantallaLogin({ onLogin }) {
-  const [usuari, setUsuari] = useState("");
+function PantallaLogin() {
+  const [email, setEmail] = useState("");
   const [contrasenya, setContrasenya] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
   const [mostrar, setMostrar] = useState(false);
-  const handleLogin = () => {
-    if (usuari === "admin" && contrasenya === "admin1234") { onLogin(); }
-    else { setError(true); setTimeout(() => setError(false), 2500); }
+  const [carregant, setCarregant] = useState(false);
+  const handleLogin = async () => {
+    if (!email || !contrasenya) return;
+    setCarregant(true); setError("");
+    const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password: contrasenya });
+    setCarregant(false);
+    if (err) { setError("Correu o contrasenya incorrectes"); setTimeout(() => setError(""), 3000); }
   };
   const inp = { width: "100%", padding: "14px 12px", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 16, background: "#fff", color: "#0f172a", boxSizing: "border-box", outline: "none", fontFamily: "var(--font-sans)" };
   return (
@@ -479,18 +484,18 @@ function PantallaLogin({ onLogin }) {
           <div style={{ fontSize: 13, color: "#94a3b8" }}>Inicia sessió per continuar</div>
         </div>
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Usuari</label>
-          <input type="text" value={usuari} onChange={e => { setUsuari(e.target.value); setError(false); }} placeholder="Usuari" autoCapitalize="none" style={inp} />
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Correu electrònic</label>
+          <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="correu@exemple.com" autoCapitalize="none" autoComplete="email" style={inp} />
         </div>
         <div style={{ marginBottom: 24 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Contrasenya</label>
           <div style={{ position: "relative" }}>
-            <input type={mostrar ? "text" : "password"} value={contrasenya} onChange={e => { setContrasenya(e.target.value); setError(false); }} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="Contrasenya" style={{ ...inp, paddingRight: 48 }} />
+            <input type={mostrar ? "text" : "password"} value={contrasenya} onChange={e => { setContrasenya(e.target.value); setError(""); }} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="Contrasenya" autoComplete="current-password" style={{ ...inp, paddingRight: 48 }} />
             <button onClick={() => setMostrar(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", fontSize: 18, cursor: "pointer", padding: 0 }}>{mostrar ? "🙈" : "👁️"}</button>
           </div>
         </div>
-        {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 16, textAlign: "center" }}>Usuari o contrasenya incorrectes</div>}
-        <button onClick={handleLogin} style={{ width: "100%", padding: "15px", background: "#10b981", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", letterSpacing: "0.02em" }}>Entrar</button>
+        {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 16, textAlign: "center" }}>{error}</div>}
+        <button onClick={handleLogin} disabled={carregant} style={{ width: "100%", padding: "15px", background: carregant ? "#6ee7b7" : "#10b981", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: carregant ? "default" : "pointer", letterSpacing: "0.02em" }}>{carregant ? "Entrant…" : "Entrar"}</button>
       </div>
     </div>
   );
@@ -795,30 +800,36 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
 }
 
 // ── App ────────────────────────────────────────────────────────────────────
-const SESSION_KEY = "cg_session_date";
-function sessionAvui() { return localStorage.getItem(SESSION_KEY) === TODAY; }
-function guardarSession() { localStorage.setItem(SESSION_KEY, TODAY); }
-
 export default function App() {
-  const [logat, setLogat] = useState(() => sessionAvui());
-  const handleLogin = () => { guardarSession(); setLogat(true); };
-  if (!logat) return <PantallaLogin onLogin={handleLogin} />;
+  const [logat, setLogat] = useState(null); // null=comprovant, false=no logat, true=logat
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setLogat(!!session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setLogat(!!session));
+    return () => subscription.unsubscribe();
+  }, []);
+  if (logat === null) return (
+    <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)" }}>
+      <div style={{ fontSize: 40 }}>🐷</div>
+    </div>
+  );
+  if (!logat) return <PantallaLogin />;
   return <AppInterna />;
 }
 
 function ModalEliminar({ item, onConfirm, onCancel }) {
-  const [usr, setUsr] = useState("");
   const [pwd, setPwd] = useState("");
   const [error, setError] = useState(false);
+  const [carregant, setCarregant] = useState(false);
   const tipusLabel = item.tipus === "granja" ? "granja" : "lot";
 
-  const confirmar = () => {
-    if (usr === "admin" && pwd === "admin1234") {
-      onConfirm();
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
-    }
+  const confirmar = async () => {
+    setCarregant(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setError(true); setCarregant(false); setTimeout(() => setError(false), 2000); return; }
+    const { error: err } = await supabase.auth.signInWithPassword({ email: session.user.email, password: pwd });
+    setCarregant(false);
+    if (!err) { onConfirm(); }
+    else { setError(true); setTimeout(() => setError(false), 2000); }
   };
 
   return (
@@ -829,16 +840,12 @@ function ModalEliminar({ item, onConfirm, onCancel }) {
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: "#fff", textAlign: "center" }}>Eliminar {tipusLabel}</div>
         <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 4, textAlign: "center" }}>«{item.nom}»</div>
         <div style={{ fontSize: 13, color: "#E24B4A", marginBottom: 20, textAlign: "center" }}>Aquesta acció és permanent i no es pot desfer.</div>
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Usuari</label>
-          <input value={usr} onChange={e => setUsr(e.target.value)} placeholder="Escriu l'usuari" autoComplete="off" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} />
-        </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Contrasenya</label>
-          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmar()} placeholder="Escriu la contrasenya" autoComplete="new-password" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} />
+          <label style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Confirma la teva contrasenya</label>
+          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmar()} placeholder="Contrasenya" autoComplete="current-password" style={{ width: "100%", padding: "13px 12px", border: "1.5px solid " + (error ? "#E24B4A" : "#444"), borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} />
         </div>
-        {error && <div style={{ background: "#FCEBEB", borderRadius: 10, padding: "10px", fontSize: 13, color: "#A32D2D", marginBottom: 14, textAlign: "center" }}>Credencials incorrectes</div>}
-        <button onClick={confirmar} style={{ width: "100%", padding: "15px", background: "#E24B4A", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>Eliminar definitivament</button>
+        {error && <div style={{ background: "#FCEBEB", borderRadius: 10, padding: "10px", fontSize: 13, color: "#A32D2D", marginBottom: 14, textAlign: "center" }}>Contrasenya incorrecta</div>}
+        <button onClick={confirmar} disabled={carregant} style={{ width: "100%", padding: "15px", background: carregant ? "#f87171" : "#E24B4A", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: carregant ? "default" : "pointer", marginBottom: 10 }}>{carregant ? "Verificant…" : "Eliminar definitivament"}</button>
         <button onClick={onCancel} style={{ width: "100%", padding: "14px", background: "transparent", border: "none", fontSize: 15, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>Cancel·lar</button>
       </div>
     </div>
@@ -1646,7 +1653,7 @@ function AppInterna() {
         {nav === "lots" && !lotId && fase !== "desmamats" && <LlistaLots />}
         {nav === "lots" && !lotId && fase === "desmamats" && <PantallaDesmamats registres={data.desmamats || []} grangesTransicio={data.transicio || []} onGuardar={handleGuardarDesmamats} onCrearLot={handleCrearLotFromDesmamats} toast={toast} />}
         {nav === "lots" && lotId && fase !== "desmamats" && <LotDetall />}
-        {nav === "exportacio" && <PantallaExportacio data={data} />}
+        {nav === "exportacio" && <PantallaExportacio data={data} onLogout={() => supabase.auth.signOut()} />}
         {nav === "tracabilitat" && <PantallaTracabilitat data={data} />}
         {nav === "sip" && <PantallaSIP data={data} toast={toast} />}
       </div>
