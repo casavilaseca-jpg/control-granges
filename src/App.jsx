@@ -1487,13 +1487,16 @@ function AppInterna() {
           {(() => {
             const pesMigE = stats.tCE > 0 && stats.tPE > 0 ? stats.tPE / stats.tCE : null;
             const pesTeoricPorc = lot.gmdTeoric && pesMigE ? parseFloat((pesMigE + lot.gmdTeoric * stats.die / 1000).toFixed(1)) : null;
-            return [{ lbl: "Caps actuals", val: stats.cap, col: "#378ADD" }, { lbl: "% Mortalitat", val: stats.pct + "%", col: hc.color === "#fff" ? "#E24B4A" : hc.color, bg: hc.bg }, { lbl: "Caps entrats", val: stats.tCE, col: "#1D9E75" }, { lbl: "Baixes", val: stats.tB, col: "#E24B4A" }, { lbl: "Caps sortits", val: stats.tCS, col: "#BA7517" }, { lbl: "Dies actius", val: stats.die, col: "#7F77DD" }, ...(pesTeoricPorc ? [{ lbl: "Pes teòric/porc", val: pesTeoricPorc + " kg", col: "#ec4899", title: `GMD teòric: ${lot.gmdTeoric} g/dia` }] : []), ...(stats.gmd ? [{ lbl: "GMD real", val: stats.gmd + "g", col: "#0F6E56" }] : []), ...(stats.gKg ? [{ lbl: "Guany/cap", val: stats.gKg + " kg", col: "#1D9E75" }] : [])];
-          })().map(({ lbl, val, col, bg, title }) => (
-            <div key={lbl} title={title || ""} style={{ background: bg || "var(--color-background-secondary)", borderRadius: 14, padding: "14px", borderLeft: "4px solid " + col }}>
-              <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{lbl}</div>
+            return [{ lbl: "Caps actuals", val: stats.cap, col: "#378ADD" }, { lbl: "% Mortalitat", val: stats.pct + "%", col: hc.color, bg: hc.bg }, { lbl: "Caps entrats", val: stats.tCE, col: "#1D9E75" }, { lbl: "Baixes", val: stats.tB, col: "#E24B4A" }, { lbl: "Caps sortits", val: stats.tCS, col: "#BA7517" }, { lbl: "Dies actius", val: stats.die, col: "#7F77DD" }, ...(pesTeoricPorc ? [{ lbl: "Pes teòric/porc", val: pesTeoricPorc + " kg", col: "#ec4899", title: `GMD teòric: ${lot.gmdTeoric} g/dia` }] : []), ...(stats.gmd ? [{ lbl: "GMD real", val: stats.gmd + "g", col: "#0F6E56" }] : []), ...(stats.gKg ? [{ lbl: "Guany/cap", val: stats.gKg + " kg", col: "#1D9E75" }] : [])];
+          })().map(({ lbl, val, col, bg, title }) => {
+            const fosc = col === "#fff";
+            return (
+            <div key={lbl} title={title || ""} style={{ background: bg || "var(--color-background-secondary)", borderRadius: 14, padding: "14px", borderLeft: fosc ? "none" : "4px solid " + col }}>
+              <div style={{ fontSize: 11, color: fosc ? "rgba(255,255,255,0.75)" : "#888", marginBottom: 4 }}>{lbl}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: col }}>{val}</div>
             </div>
-          ))}
+            );
+          })}
         </div>
         <div style={{ display: "flex", borderBottom: "1px solid #f0f0f0", margin: "0 12px", overflowX: "auto" }}>
           {[["resum", "Resum"], ["entrades", "Entrades (" + lot.entrades.length + ")"], ["sortides", "Sortides (" + lot.sortides.length + ")"], ["baixes", "Baixes (" + stats.tB + ")"], ["tractaments", "Tractaments (" + tracts.length + ")"]].map(([k, lbl]) => (
