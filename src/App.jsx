@@ -1212,13 +1212,16 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   // Gràfic: buckets dinàmics per escala
   const escCfg = ESCALES_GRAF.find(e => e.key === escala) || ESCALES_GRAF[1];
   const { N, tipus } = escCfg;
-  const buckets = (tipus === "s" && N === 1)
-    ? Array.from({ length: 7 }, (_, i) => {
-        const msAgo = (6 - i) * 86400000;
+  const dies7 = ["Dg","Dl","Dt","Dc","Dj","Dv","Ds"];
+  const buckets = (tipus === "s" && N <= 4)
+    ? Array.from({ length: N * 7 }, (_, i) => {
+        const totalDies = N * 7;
+        const msAgo = (totalDies - 1 - i) * 86400000;
         const s = new Date(new Date(TODAY) - msAgo);
-        const e = new Date(new Date(TODAY) - msAgo + 86400000);
-        const dies = ["Dg","Dl","Dt","Dc","Dj","Dv","Ds"];
-        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: dies[s.getDay()] };
+        const e = new Date(s.getTime() + 86400000);
+        const primerDiaSetmana = i % 7 === 0;
+        const lbl = N === 1 ? dies7[s.getDay()] : (primerDiaSetmana ? `${s.getDate()}/${s.getMonth() + 1}` : "");
+        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl };
       })
     : tipus === "s"
     ? Array.from({ length: N }, (_, i) => {
@@ -1245,7 +1248,8 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const maxVal = Math.max(1, ...weeklyPerFase.flatMap(d => d.vals));
   const CW = 300; const CH = 80;
   const padL = 22; const padB = 14; const padT = 6; const padR = 4;
-  const tx = i => padL + i * (CW - padL - padR) / Math.max(N - 1, 1);
+  const nPts = buckets.length;
+  const tx = i => padL + i * (CW - padL - padR) / Math.max(nPts - 1, 1);
   const ty = v => padT + (1 - v / maxVal) * (CH - padT - padB);
 
   // Lots en risc (alertes crítiques no descartades)
