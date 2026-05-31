@@ -1192,6 +1192,12 @@ const ESCALES_GRAF = [
   { key: "12m", label: "12 mesos", N: 12, tipus: "m" },
 ];
 const MESOS_CURT = ["Gen","Feb","Mar","Abr","Mai","Jun","Jul","Ago","Set","Oct","Nov","Des"];
+function isoWeek(date) {
+  const d = new Date(date); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+}
 
 function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const fasesOrdre = ["transicio", "preengreix", "engreix", "mares"];
@@ -1212,16 +1218,15 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   // Gràfic: buckets dinàmics per escala
   const escCfg = ESCALES_GRAF.find(e => e.key === escala) || ESCALES_GRAF[1];
   const { N, tipus } = escCfg;
-  const dies7 = ["Dg","Dl","Dt","Dc","Dj","Dv","Ds"];
-  // Per a N>1 setm, mostrem l'etiqueta del dia però només cada cert interval per no saturar
-  const lblInterval = N === 1 ? 1 : N === 2 ? 1 : N === 3 ? 2 : 3;
+  // Interval d'etiquetes per a vistes diàries (evitar saturació)
+  const lblInterval = N <= 2 ? 1 : N === 3 ? 2 : 3;
   const buckets = (tipus === "s" && N <= 4)
     ? Array.from({ length: N * 7 }, (_, i) => {
         const totalDies = N * 7;
         const msAgo = (totalDies - 1 - i) * 86400000;
         const s = new Date(new Date(TODAY) - msAgo);
         const e = new Date(s.getTime() + 86400000);
-        const lbl = i % lblInterval === 0 ? dies7[s.getDay()] : "";
+        const lbl = i % lblInterval === 0 ? String(s.getDate()) : "";
         return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl };
       })
     : tipus === "s"
@@ -1229,7 +1234,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
         const msAgo = (N - 1 - i) * 7 * 86400000;
         const s = new Date(new Date(TODAY) - msAgo);
         const e = new Date(new Date(TODAY) - msAgo + 7 * 86400000);
-        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: `S${i + 1}` };
+        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: `S${isoWeek(s)}` };
       })
     : Array.from({ length: N }, (_, i) => {
         const d = new Date(TODAY); d.setDate(1); d.setMonth(d.getMonth() - (N - 1 - i));
