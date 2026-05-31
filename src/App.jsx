@@ -1213,14 +1213,15 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const escCfg = ESCALES_GRAF.find(e => e.key === escala) || ESCALES_GRAF[1];
   const { N, tipus } = escCfg;
   const dies7 = ["Dg","Dl","Dt","Dc","Dj","Dv","Ds"];
+  // Per a N>1 setm, mostrem l'etiqueta del dia però només cada cert interval per no saturar
+  const lblInterval = N === 1 ? 1 : N === 2 ? 1 : N === 3 ? 2 : 3;
   const buckets = (tipus === "s" && N <= 4)
     ? Array.from({ length: N * 7 }, (_, i) => {
         const totalDies = N * 7;
         const msAgo = (totalDies - 1 - i) * 86400000;
         const s = new Date(new Date(TODAY) - msAgo);
         const e = new Date(s.getTime() + 86400000);
-        const primerDiaSetmana = i % 7 === 0;
-        const lbl = N === 1 ? dies7[s.getDay()] : (primerDiaSetmana ? `${s.getDate()}/${s.getMonth() + 1}` : "");
+        const lbl = i % lblInterval === 0 ? dies7[s.getDay()] : "";
         return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl };
       })
     : tipus === "s"
