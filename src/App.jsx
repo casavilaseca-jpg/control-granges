@@ -1182,6 +1182,9 @@ function PantallaSIP({ data, toast }) {
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
 const ESCALES_GRAF = [
+  { key: "1s",  label: "1 setm.",  N: 1,  tipus: "s" },
+  { key: "2s",  label: "2 setm.",  N: 2,  tipus: "s" },
+  { key: "3s",  label: "3 setm.",  N: 3,  tipus: "s" },
   { key: "4s",  label: "4 setm.",  N: 4,  tipus: "s" },
   { key: "8s",  label: "8 setm.",  N: 8,  tipus: "s" },
   { key: "12s", label: "12 setm.", N: 12, tipus: "s" },
@@ -1209,7 +1212,15 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   // Gràfic: buckets dinàmics per escala
   const escCfg = ESCALES_GRAF.find(e => e.key === escala) || ESCALES_GRAF[1];
   const { N, tipus } = escCfg;
-  const buckets = tipus === "s"
+  const buckets = (tipus === "s" && N === 1)
+    ? Array.from({ length: 7 }, (_, i) => {
+        const msAgo = (6 - i) * 86400000;
+        const s = new Date(new Date(TODAY) - msAgo);
+        const e = new Date(new Date(TODAY) - msAgo + 86400000);
+        const dies = ["Dg","Dl","Dt","Dc","Dj","Dv","Ds"];
+        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: dies[s.getDay()] };
+      })
+    : tipus === "s"
     ? Array.from({ length: N }, (_, i) => {
         const msAgo = (N - 1 - i) * 7 * 86400000;
         const s = new Date(new Date(TODAY) - msAgo);
