@@ -1181,8 +1181,18 @@ function PantallaSIP({ data, toast }) {
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
+const ESCALES_GRAF = [
+  { key: "4s",  label: "4 setm.",  N: 4,  tipus: "s" },
+  { key: "8s",  label: "8 setm.",  N: 8,  tipus: "s" },
+  { key: "12s", label: "12 setm.", N: 12, tipus: "s" },
+  { key: "6m",  label: "6 mesos",  N: 6,  tipus: "m" },
+  { key: "12m", label: "12 mesos", N: 12, tipus: "m" },
+];
+const MESOS_CURT = ["Gen","Feb","Mar","Abr","Mai","Jun","Jul","Ago","Set","Oct","Nov","Des"];
+
 function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const fasesOrdre = ["transicio", "preengreix", "engreix", "mares"];
+  const [escala, setEscala] = useState("8s");
 
   // Calculs per fase
   const statsPerFase = fasesOrdre.map(f => {
@@ -1196,18 +1206,26 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
     return { f, info: FASES[f], nLots: oberts.length, caps, baixes7, mort };
   });
 
-  // Gràfic: últimes 8 setmanes
-  const W8 = 8;
-  const weekBuckets = Array.from({ length: W8 }, (_, i) => {
-    const msAgo = (W8 - 1 - i) * 7 * 86400000;
-    const s = new Date(new Date(TODAY) - msAgo);
-    const e = new Date(new Date(TODAY) - msAgo + 7 * 86400000);
-    return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: `S${i + 1}` };
-  });
+  // Gràfic: buckets dinàmics per escala
+  const escCfg = ESCALES_GRAF.find(e => e.key === escala) || ESCALES_GRAF[1];
+  const { N, tipus } = escCfg;
+  const buckets = tipus === "s"
+    ? Array.from({ length: N }, (_, i) => {
+        const msAgo = (N - 1 - i) * 7 * 86400000;
+        const s = new Date(new Date(TODAY) - msAgo);
+        const e = new Date(new Date(TODAY) - msAgo + 7 * 86400000);
+        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: `S${i + 1}` };
+      })
+    : Array.from({ length: N }, (_, i) => {
+        const d = new Date(TODAY); d.setDate(1); d.setMonth(d.getMonth() - (N - 1 - i));
+        const start = d.toISOString().slice(0, 10);
+        const e2 = new Date(d); e2.setMonth(e2.getMonth() + 1);
+        return { start, end: e2.toISOString().slice(0, 10), lbl: MESOS_CURT[d.getMonth()] };
+      });
 
   const weeklyPerFase = fasesOrdre.map(f => {
     const lots = (data[f] || []).flatMap(g => g.lots);
-    const vals = weekBuckets.map(({ start, end }) =>
+    const vals = buckets.map(({ start, end }) =>
       lots.reduce((s, l) => s + l.baixes.filter(b => b.data >= start && b.data < end).reduce((ss, b) => ss + b.caps, 0), 0)
     );
     return { f, info: FASES[f], vals };
@@ -1216,7 +1234,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const maxVal = Math.max(1, ...weeklyPerFase.flatMap(d => d.vals));
   const CW = 300; const CH = 80;
   const padL = 22; const padB = 14; const padT = 6; const padR = 4;
-  const tx = i => padL + i * (CW - padL - padR) / (W8 - 1);
+  const tx = i => padL + i * (CW - padL - padR) / Math.max(N - 1, 1);
   const ty = v => padT + (1 - v / maxVal) * (CH - padT - padB);
 
   // Lots en risc (alertes crítiques no descartades)
@@ -1311,7 +1329,14 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
 
       {/* Bloc 2: Gràfic de tendència */}
       <div style={{ margin: "16px 12px 0" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tendència de baixes · últimes 8 setmanes</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tendència de baixes</div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {ESCALES_GRAF.map(e => (
+              <button key={e.key} onClick={() => setEscala(e.key)} style={{ padding: "4px 8px", border: "1.5px solid " + (escala === e.key ? "#6366f1" : "#e2e8f0"), borderRadius: 8, background: escala === e.key ? "#eef2ff" : "transparent", color: escala === e.key ? "#6366f1" : "#94a3b8", fontSize: 10, fontWeight: escala === e.key ? 700 : 400, cursor: "pointer" }}>{e.label}</button>
+            ))}
+          </div>
+        </div>
         <div style={{ background: "#fff", borderRadius: 16, padding: "14px 12px 10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
           {maxVal <= 1 ? (
             <div style={{ textAlign: "center", padding: "20px 0", color: "#cbd5e1", fontSize: 13 }}>Sense dades de baixes recents</div>
@@ -1334,7 +1359,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                   />
                 ))}
                 {/* Eix X labels */}
-                {weekBuckets.map((b, i) => (
+                {buckets.map((b, i) => (
                   <text key={i} x={tx(i)} y={CH - 1} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
                 ))}
               </svg>
