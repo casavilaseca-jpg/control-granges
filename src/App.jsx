@@ -1064,19 +1064,19 @@ function PantallaSIP({ data, toast }) {
   };
 
   // Helpers de render
-  const autoC = { padding: '8px 6px 8px 10px', fontSize: 12, color: '#0c4a6e', fontWeight: 700, textAlign: 'right' };
+  const autoC = { padding: '9px 5px 9px 0', fontSize: 13, color: '#0c4a6e', fontWeight: 700, textAlign: 'right' };
   const autoVal = v => (v && v > 0) ? Math.round(v).toLocaleString() : <span style={{ color: '#cbd5e1' }}>—</span>;
-  const inpStyle = { width: '100%', border: 'none', background: 'transparent', fontSize: 12, textAlign: 'right', color: '#1e293b', padding: '2px 0', outline: 'none', fontFamily: 'inherit' };
+  const inpStyle = { width: '100%', border: 'none', background: 'transparent', fontSize: 13, textAlign: 'right', color: '#1e293b', padding: '2px 0', outline: 'none', fontFamily: 'inherit' };
   const Inp = ({ k, ph }) => <input type="number" inputMode="decimal" value={manual[k] || ''} onChange={e => setM(k, e.target.value)} placeholder={ph || '0'} style={inpStyle} />;
   const tdA = (v, extra={}) => <td style={{ ...autoC, ...extra }}>{autoVal(v)}</td>;
   const tdM = (k, ph) => <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}><Inp k={k} ph={ph} /></td>;
   const tdEmpty = () => <td style={{ padding: '8px 6px', textAlign: 'right', color: '#e2e8f0', fontSize: 11 }}>—</td>;
-  const labelTd = (txt, auto) => <td style={{ padding: '8px 10px', fontSize: 11, color: auto ? '#0c4a6e' : '#374151', display: 'flex', alignItems: 'center', gap: 5 }}>
+  const labelTd = (txt, auto) => <td style={{ padding: '9px 10px', fontSize: 12, color: auto ? '#0c4a6e' : '#374151', display: 'flex', alignItems: 'center', gap: 5 }}>
     {auto && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0891b2', flexShrink: 0, display: 'inline-block' }} />}
     {txt}
   </td>;
 
-  const pesMig = (kg, caps) => (kg > 0 && caps > 0) ? parseFloat((kg / caps).toFixed(1)) : null;
+  const pesMig = (kg, caps) => (kg > 0 && caps > 0) ? parseFloat((kg / caps).toFixed(2)) : null;
   const SecHead = ({ t }) => (
     <tr style={{ background: '#0891b2' }}>
       <td colSpan={4} style={{ padding: '8px 12px', fontWeight: 800, fontSize: 13, color: '#fff', letterSpacing: '0.04em' }}>{t}</td>
@@ -1085,7 +1085,7 @@ function PantallaSIP({ data, toast }) {
   const ColHead = () => (
     <tr style={{ background: '#e0f2fe', borderBottom: '2px solid #bae6fd' }}>
       {['CONCEPTE', 'QUANT.', 'PES (kg)', 'PES MIG'].map((h, i) => (
-        <td key={h} style={{ padding: '6px 4px 6px ' + (i===0?'10px':'0'), fontSize: 9, fontWeight: 700, color: '#0369a1', textAlign: i===0?'left':'right', width: i===0?'46%':i===1?'14%':'20%' }}>{h}</td>
+        <td key={h} style={{ padding: '7px 5px 7px ' + (i===0?'10px':'0'), fontSize: 10, fontWeight: 700, color: '#0369a1', textAlign: i===0?'left':'right', width: i===0?'52%':'16%' }}>{h}</td>
       ))}
     </tr>
   );
