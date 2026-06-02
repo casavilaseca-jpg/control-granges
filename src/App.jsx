@@ -1076,34 +1076,36 @@ function PantallaSIP({ data, toast }) {
     {txt}
   </td>;
 
+  const pesMig = (kg, caps) => (kg > 0 && caps > 0) ? parseFloat((kg / caps).toFixed(1)) : null;
   const SecHead = ({ t }) => (
     <tr style={{ background: '#0891b2' }}>
-      <td colSpan={3} style={{ padding: '8px 12px', fontWeight: 800, fontSize: 13, color: '#fff', letterSpacing: '0.04em' }}>{t}</td>
+      <td colSpan={4} style={{ padding: '8px 12px', fontWeight: 800, fontSize: 13, color: '#fff', letterSpacing: '0.04em' }}>{t}</td>
     </tr>
   );
   const ColHead = () => (
     <tr style={{ background: '#e0f2fe', borderBottom: '2px solid #bae6fd' }}>
-      {['CONCEPTE', 'QUANT.', 'PES (kg)'].map((h, i) => (
-        <td key={h} style={{ padding: '6px 6px 6px ' + (i===0?'10px':'0'), fontSize: 9, fontWeight: 700, color: '#0369a1', textAlign: i===0?'left':'right', width: i===0?'55%':'22.5%' }}>{h}</td>
+      {['CONCEPTE', 'QUANT.', 'PES (kg)', 'PES MIG'].map((h, i) => (
+        <td key={h} style={{ padding: '6px 4px 6px ' + (i===0?'10px':'0'), fontSize: 9, fontWeight: 700, color: '#0369a1', textAlign: i===0?'left':'right', width: i===0?'46%':i===1?'14%':'20%' }}>{h}</td>
       ))}
     </tr>
   );
   const rowBorder = { borderBottom: '1px solid #f1f5f9' };
-  const AutoRow = ({ label, q, p }) => (
+  const AutoRow = ({ label, q, p, pm }) => (
     <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA(pm) : tdEmpty()}
     </tr>
   );
   const ManualRow = ({ label, qk, pk }) => (
     <tr style={{ ...rowBorder, background: '#fffdf0' }}>
       {labelTd(label, false)}
-      <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{qk ? <Inp k={qk} /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
-      <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}>{pk ? <Inp k={pk} ph="kg" /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
+      <td style={{ padding: '5px 4px 5px 0', textAlign: 'right' }}>{qk ? <Inp k={qk} /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
+      <td style={{ padding: '5px 4px 5px 0', textAlign: 'right' }}>{pk ? <Inp k={pk} ph="kg" /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
+      {tdEmpty()}
     </tr>
   );
-  const MixedRow = ({ label, q, p }) => (
+  const MixedRow = ({ label, q, p, pm }) => (
     <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA(pm) : tdEmpty()}
     </tr>
   );
 
@@ -1128,6 +1130,7 @@ function PantallaSIP({ data, toast }) {
       <div style={{ display: 'flex', gap: 14, padding: '8px 14px', fontSize: 10, color: '#64748b', background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0891b2', display: 'inline-block' }} /> Calculat automàticament</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, background: '#fef9c3', border: '1px solid #ca8a04', borderRadius: 2, display: 'inline-block' }} /> Entrada manual</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ fontSize: 9, fontWeight: 700, color: '#0891b2' }}>PM</span> = kg/cap</span>
       </div>
 
       {/* Taula */}
@@ -1144,7 +1147,7 @@ function PantallaSIP({ data, toast }) {
             <AutoRow  label="Cens inici de mes (Presents)" q={mrIniciPresents} />
             <AutoRow   label="Futures — compra (granja externa)" q={futCompCaps} />
             <AutoRow   label="Futures — autorep (engreix propi)" q={futAutorepCaps} />
-            <MixedRow  label="Mares → escorxador (venda)" q={mrEscorxCaps} p={mrEscorxKg} />
+            <MixedRow  label="Mares → escorxador (venda)" q={mrEscorxCaps} p={mrEscorxKg} pm={pesMig(mrEscorxKg, mrEscorxCaps)} />
             <AutoRow   label="Cens final de mes (Presents)" q={mrFinalPresents} />
             <ManualRow label="Pinso Lactants" pk="pinsoLactKg" />
             <ManualRow label="Pinso Gestants" pk="pinsoGestKg" />
@@ -1155,16 +1158,16 @@ function PantallaSIP({ data, toast }) {
             <SecHead t="TRANSICIÓ" />
             <ColHead />
             <AutoRow  label="Existències inici de mes" q={tr.inici} />
-            <AutoRow  label="Animals entrats durant el mes" q={tr.entCaps} p={tr.entKg} />
-            <AutoRow  label="Animals sortits durant el mes" q={tr.sorCaps} p={tr.sorKg} />
+            <AutoRow  label="Animals entrats durant el mes" q={tr.entCaps} p={tr.entKg} pm={pesMig(tr.entKg, tr.entCaps)} />
+            <AutoRow  label="Animals sortits durant el mes" q={tr.sorCaps} p={tr.sorKg} pm={pesMig(tr.sorKg, tr.sorCaps)} />
             <AutoRow  label="Existències finals de mes" q={tr.final} />
             <AutoRow  label="Baixes durant el mes" q={tr.baixes} />
 
             <SecHead t="PRE-ENGREIX + ENGREIX" />
             <ColHead />
             <AutoRow  label="Existències inici de mes" q={pe.inici} />
-            <AutoRow  label="Animals entrats durant el mes" q={pe.entCaps} p={pe.entKg} />
-            <AutoRow  label="Animals sortits durant el mes" q={pe.sorCaps} p={pe.sorKg} />
+            <AutoRow  label="Animals entrats durant el mes" q={pe.entCaps} p={pe.entKg} pm={pesMig(pe.entKg, pe.entCaps)} />
+            <AutoRow  label="Animals sortits durant el mes" q={pe.sorCaps} p={pe.sorKg} pm={pesMig(pe.sorKg, pe.sorCaps)} />
             <AutoRow  label="Existències finals de mes" q={pe.final} />
             <AutoRow  label="Baixes durant el mes" q={pe.baixes} />
           </tbody>
