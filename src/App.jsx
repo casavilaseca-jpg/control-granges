@@ -1411,10 +1411,10 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                   ))}
                 </defs>
                 {/* Grid horitzontal + etiquetes eix Y */}
-                {[0, 0.5, 1].map(r => (
-                  <g key={r}>
-                    <line x1={padL} y1={ty(maxVal * r)} x2={CW - padR} y2={ty(maxVal * r)} stroke="#f1f5f9" strokeWidth="1" />
-                    <text x={padL - 4} y={ty(maxVal * r) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{Math.round(maxVal * r)}</text>
+                {[...new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map(r => Math.round(maxVal * r)))].map(val => (
+                  <g key={val}>
+                    <line x1={padL} y1={ty(val)} x2={CW - padR} y2={ty(val)} stroke="#f1f5f9" strokeWidth="1" />
+                    <text x={padL - 4} y={ty(val) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{val}</text>
                   </g>
                 ))}
                 {/* Àrees + línies per fase */}
