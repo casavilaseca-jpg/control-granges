@@ -1263,11 +1263,23 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   });
 
   const maxVal = Math.max(1, ...weeklyPerFase.flatMap(d => d.vals));
-  const CW = 300; const CH = 80;
-  const padL = 22; const padB = 14; const padT = 6; const padR = 4;
+  const CW = 300; const CH = 150;
+  const padL = 26; const padB = 16; const padT = 10; const padR = 6;
   const nPts = buckets.length;
   const tx = i => padL + i * (CW - padL - padR) / Math.max(nPts - 1, 1);
   const ty = v => padT + (1 - v / maxVal) * (CH - padT - padB);
+
+  // Enriquiment gràfic: totals i tendència vs període anterior
+  const fasaTotals = weeklyPerFase.map(d => ({ ...d, tot: d.vals.reduce((s, v) => s + v, 0) }));
+  const periodeTotal = fasaTotals.reduce((s, d) => s + d.tot, 0);
+  const winStart = buckets[0]?.start; const winEnd = buckets[buckets.length - 1]?.end;
+  const durMs = (winStart && winEnd) ? (new Date(winEnd) - new Date(winStart)) : 0;
+  const prevStart = winStart ? new Date(new Date(winStart) - durMs).toISOString().slice(0, 10) : null;
+  const prevTotal = (prevStart && winStart) ? fasesOrdre.reduce((s, f) =>
+    s + (data[f] || []).flatMap(g => g.lots).reduce((ss, l) =>
+      ss + l.baixes.filter(b => b.data >= prevStart && b.data < winStart).reduce((sss, b) => sss + b.caps, 0), 0), 0) : 0;
+  const trendPct = prevTotal > 0 ? Math.round(((periodeTotal - prevTotal) / prevTotal) * 100) : null;
+  const showDots = nPts <= 14;
 
   // Lots en risc (alertes crítiques no descartades)
   const lotsRisc = fasesOrdre.flatMap(f =>
@@ -1360,47 +1372,75 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
       </div>
 
       {/* Bloc 2: Gràfic de tendència */}
-      <div style={{ margin: "16px 12px 0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Tendència de baixes</div>
-          <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ margin: "20px 12px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tendència de baixes</div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
             {ESCALES_GRAF.map(e => (
               <button key={e.key} onClick={() => setEscala(e.key)} style={{ padding: "4px 8px", border: "1.5px solid " + (escala === e.key ? "#6366f1" : "#e2e8f0"), borderRadius: 8, background: escala === e.key ? "#eef2ff" : "transparent", color: escala === e.key ? "#6366f1" : "#94a3b8", fontSize: 10, fontWeight: escala === e.key ? 700 : 400, cursor: "pointer" }}>{e.label}</button>
             ))}
           </div>
         </div>
-        <div style={{ background: "#fff", borderRadius: 16, padding: "14px 12px 10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+        <div style={{ background: "#fff", borderRadius: 16, padding: "16px 14px 12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}>
+          {/* Capçalera amb total del període i tendència */}
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{periodeTotal.toLocaleString()}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>baixes · {escCfg.label}</div>
+            </div>
+            {trendPct !== null && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, background: trendPct > 0 ? "#fef2f2" : trendPct < 0 ? "#f0fdf4" : "#f8fafc", borderRadius: 9, padding: "5px 10px" }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: trendPct > 0 ? "#E24B4A" : trendPct < 0 ? "#10b981" : "#94a3b8" }}>
+                  {trendPct > 0 ? "▲" : trendPct < 0 ? "▼" : "="} {Math.abs(trendPct)}%
+                </span>
+                <span style={{ fontSize: 9, color: "#94a3b8", maxWidth: 60, lineHeight: 1.1 }}>vs període anterior</span>
+              </div>
+            )}
+          </div>
           {maxVal <= 1 ? (
-            <div style={{ textAlign: "center", padding: "20px 0", color: "#cbd5e1", fontSize: 13 }}>Sense dades de baixes recents</div>
+            <div style={{ textAlign: "center", padding: "26px 0", color: "#cbd5e1", fontSize: 13 }}>Sense dades de baixes recents 🟢</div>
           ) : (
             <>
               <svg viewBox={`0 0 ${CW} ${CH}`} style={{ width: "100%", height: CH, display: "block" }} preserveAspectRatio="none">
-                {/* Grid horitzontal */}
-                {[0.33, 0.66, 1].map(r => (
-                  <line key={r} x1={padL} y1={ty(maxVal * r)} x2={CW - padR} y2={ty(maxVal * r)} stroke="#f1f5f9" strokeWidth="1" />
+                <defs>
+                  {weeklyPerFase.map(({ f, info }) => (
+                    <linearGradient key={f} id={`grad-${f}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={info.color} stopOpacity="0.18" />
+                      <stop offset="100%" stopColor={info.color} stopOpacity="0" />
+                    </linearGradient>
+                  ))}
+                </defs>
+                {/* Grid horitzontal + etiquetes eix Y */}
+                {[0, 0.5, 1].map(r => (
+                  <g key={r}>
+                    <line x1={padL} y1={ty(maxVal * r)} x2={CW - padR} y2={ty(maxVal * r)} stroke="#f1f5f9" strokeWidth="1" />
+                    <text x={padL - 4} y={ty(maxVal * r) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{Math.round(maxVal * r)}</text>
+                  </g>
                 ))}
-                {/* Eix Y labels */}
-                <text x={padL - 3} y={ty(maxVal) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{maxVal}</text>
-                <text x={padL - 3} y={ty(0) + 1} fontSize="8" fill="#cbd5e1" textAnchor="end">0</text>
-                {/* Línies per fase */}
-                {weeklyPerFase.map(({ f, info, vals }) => (
-                  <polyline key={f}
-                    points={vals.map((v, i) => `${tx(i)},${ty(v)}`).join(" ")}
-                    fill="none" stroke={info.color} strokeWidth="2.5"
-                    strokeLinejoin="round" strokeLinecap="round"
-                  />
-                ))}
+                {/* Àrees + línies per fase */}
+                {weeklyPerFase.map(({ f, info, vals }) => {
+                  const line = vals.map((v, i) => `${tx(i)},${ty(v)}`).join(" ");
+                  const area = `${tx(0)},${ty(0)} ${line} ${tx(nPts - 1)},${ty(0)}`;
+                  return (
+                    <g key={f}>
+                      <polygon points={area} fill={`url(#grad-${f})`} />
+                      <polyline points={line} fill="none" stroke={info.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                      {showDots && vals.map((v, i) => v > 0 && <circle key={i} cx={tx(i)} cy={ty(v)} r="2.4" fill="#fff" stroke={info.color} strokeWidth="1.5" />)}
+                    </g>
+                  );
+                })}
                 {/* Eix X labels */}
                 {buckets.map((b, i) => (
-                  <text key={i} x={tx(i)} y={CH - 1} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
+                  <text key={i} x={tx(i)} y={CH - 2} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
                 ))}
               </svg>
-              {/* Llegenda */}
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
-                {weeklyPerFase.map(({ f, info }) => (
-                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <div style={{ width: 14, height: 3, background: info.color, borderRadius: 2 }} />
-                    <span style={{ fontSize: 10, color: "#94a3b8" }}>{info.label}</span>
+              {/* Llegenda amb total per fase */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                {fasaTotals.map(({ f, info, tot }) => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 6, background: "#f8fafc", borderRadius: 8, padding: "4px 9px" }}>
+                    <div style={{ width: 12, height: 3, background: info.color, borderRadius: 2 }} />
+                    <span style={{ fontSize: 10, color: "#64748b" }}>{info.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: tot > 0 ? info.colorDark : "#cbd5e1" }}>{tot}</span>
                   </div>
                 ))}
               </div>
