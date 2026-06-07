@@ -123,12 +123,14 @@ function destiOptions(fase) {
   if (fase === "preengreix") return [
     { value: "nouEngreix",  label: "Nou lot d'engreix" },
     { value: "nouMares",    label: "Nou lot de Mares" },
+    { value: "autoRep",     label: "Mares / Reposició (Auto)" },
     { value: "escorxador",  label: "Escorxador" },
     { value: "lot",         label: "Lot existent" },
     { value: "altre",       label: "Altre" },
   ];
   if (fase === "engreix") return [
     { value: "nouMares",    label: "Nou lot de Mares" },
+    { value: "autoRep",     label: "Mares / Reposició (Auto)" },
     { value: "escorxador",  label: "Escorxador" },
     { value: "lot",         label: "Lot existent" },
     { value: "altre",       label: "Altre" },
@@ -1007,14 +1009,22 @@ function PantallaSIP({ data, toast }) {
   const deslletaments = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).filter(g => g > 0).length, 0);
   const mrEscorxCaps = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0);
   const mrEscorxKg   = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0);
-  // Futures: distingim compra externa vs autorep (lot propi d'engreix)
-  const engreixIds = new Set(lotsOf('engreix').map(l => l.id));
-  const futAutorepCaps = maresLots.filter(l => engreixIds.has(l.parentLotId)).reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + e.caps, 0), 0);
-  const futCompCaps    = maresLots.filter(l => !engreixIds.has(l.parentLotId)).reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + e.caps, 0), 0);
   // Cens Mares: separem Productives vs Reposició vs No productives per nom de lot
   const isReposicio   = l => /reposici/i.test(l.nom);
   const isNoProductiv = l => /no.?product/i.test(l.nom);
   const isProductiva  = l => !isReposicio(l) && !isNoProductiv(l);
+  // Futures: només lots de reposició; distingim compra externa vs autorep per l'origen de l'entrada
+  // Autorep = l'entrada prové d'una sortida d'un lot propi d'engreix/preengreix (origen = "Granja / Lot")
+  const reposicioLots = maresLots.filter(isReposicio);
+  const propiGranjaNames = new Set([...(data['engreix'] || []), ...(data['preengreix'] || [])].map(g => g.nom));
+  const propiLotNoms     = new Set([...lotsOf('engreix'), ...lotsOf('preengreix')].map(l => l.nom));
+  const esAutoRep = e => {
+    if (!e.origen) return false;
+    const parts = String(e.origen).split(' / ');
+    return propiGranjaNames.has((parts[0] || '').trim()) || propiLotNoms.has((parts[1] || '').trim());
+  };
+  const futAutorepCaps = reposicioLots.reduce((s, l) => s + during(l.entrades).filter(esAutoRep).reduce((ss, e) => ss + e.caps, 0), 0);
+  const futCompCaps    = reposicioLots.reduce((s, l) => s + during(l.entrades).filter(e => !esAutoRep(e)).reduce((ss, e) => ss + e.caps, 0), 0);
   const capsAtEnd = l => capsAt(l, nextM);
   const mrFinalPresents    = maresLots.reduce((s, l) => s + capsAtEnd(l), 0);
   const mrFinalProductives = maresLots.filter(isProductiva).reduce((s, l) => s + capsAtEnd(l), 0);
@@ -1485,6 +1495,12 @@ function AppInterna() {
     (data[f] || []).flatMap(g => g.lots.filter(l => l.estat === "obert" && !(f === fase && g.id === granjaId && l.id === lotId))
       .map(l => ({ value: String(l.id), label: "[" + FASES[f].label + "] " + g.nom + " / " + l.nom })))
   );
+  // Lots origen possibles per autoreposició (engreix/preengreix oberts)
+  const lotsAutoRep = ["engreix", "preengreix"].flatMap(f =>
+    (data[f] || []).flatMap(g => g.lots.filter(l => l.estat === "obert")
+      .map(l => ({ value: String(l.id), label: "[" + FASES[f].label + "] " + g.nom + " / " + l.nom, origen: g.nom + " / " + l.nom })))
+  );
+  const esLotReposicio = fase === "mares" && /reposici/i.test(lot?.nom || "");
   const goLot = (gid, lid) => { setGranjaId(gid); setLotId(lid); setTabLot("resum"); setNav("lots"); };
 
   const handleEliminar = async () => {
@@ -1505,9 +1521,20 @@ function AppInterna() {
     const caps = parseInt(vals.caps);
     let pesKg = parseFloat(vals.pesKg) || 0;
     if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
-    const { error } = await supabase.from("entrades").insert({ lot_id: lotId, data: vals.data, caps, pes_kg: pesKg, origen: vals.origen || "" });
+    // Autoreposició: entrada a Reposició sense marcar "compra externa" → cal lot d'origen + sortida
+    const esAutorep = esLotReposicio && vals.compraExterna === false;
+    let origen = vals.origen || "";
+    if (esAutorep) {
+      const src = lotsAutoRep.find(x => x.value === vals.autoRepLot);
+      if (!src) { toast("Selecciona el lot d'origen d'autoreposició ❌", "alerta"); return; }
+      origen = src.origen;
+      const { error: sErr } = await supabase.from("sortides").insert({ lot_id: vals.autoRepLot, data: vals.data, caps, pes_kg: pesKg, tipus_desti: "lot", desti: (granja?.nom || "") + " / " + (lot?.nom || "") + " (Auto)" });
+      if (sErr) { toast("Error en registrar la sortida d'origen ❌", "alerta"); return; }
+    }
+    const { error } = await supabase.from("entrades").insert({ lot_id: lotId, data: vals.data, caps, pes_kg: pesKg, origen });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
-    toast("Entrada registrada ✓"); setModal(null);
+    if (esAutorep) { const newData = await carregarTot(); setData(newData); }
+    toast(esAutorep ? "Entrada d'autoreposició i sortida d'origen registrades ✓" : "Entrada registrada ✓"); setModal(null);
   };
 
   const handleSortida = async vals => {
@@ -1516,9 +1543,18 @@ function AppInterna() {
     let pesKg = parseFloat(vals.pesKg) || 0;
     if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
     if (!pesKg) return;
-    const destiLotId = vals.tipusDesti === "lot" ? vals.destiLot : null;
-    const de = vals.tipusDesti === "lot" ? lotsPerDesti.find(x => x.value === vals.destiLot)?.label || "" : vals.desti || "";
-    const { error } = await supabase.from("sortides").insert({ lot_id: lotId, data: vals.data, caps, pes_kg: pesKg, tipus_desti: vals.tipusDesti, desti: de });
+    // autoRep: la sortida va a la Reposició existent (autoreposició) → entrada automàtica
+    let destiLotId = vals.tipusDesti === "lot" ? vals.destiLot : null;
+    let deLabel;
+    if (vals.tipusDesti === "autoRep") {
+      const repLot = (data['mares'] || []).flatMap(g => (g.lots || []).filter(l => l.estat === "obert" && /reposici/i.test(l.nom)).map(l => ({ id: l.id, nom: l.nom, granja: g.nom })))[0];
+      if (!repLot) { toast("No s'ha trobat cap lot de Reposició obert ❌", "alerta"); return; }
+      destiLotId = repLot.id;
+      deLabel = repLot.granja + " / " + repLot.nom + " (Auto)";
+    } else {
+      deLabel = vals.tipusDesti === "lot" ? lotsPerDesti.find(x => x.value === vals.destiLot)?.label || "" : vals.desti || "";
+    }
+    const { error } = await supabase.from("sortides").insert({ lot_id: lotId, data: vals.data, caps, pes_kg: pesKg, tipus_desti: vals.tipusDesti, desti: deLabel });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
     if (destiLotId) {
       const origenNom = (granja?.nom || "") + " / " + (lot?.nom || "");
@@ -1819,13 +1855,31 @@ function AppInterna() {
 
       {modal === "entrada" && <ModalForm title="Nova entrada" confirmLabel="Registrar entrada" confirmColor={fc.color} capsActuals={stats?.tCE}
         fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", placeholder: "Nombre de porcs" }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 6.5" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal" }, { key: "origen", label: "Origen (opcional)", type: "text", placeholder: fase === "transicio" ? "Ex: Maternitat Mas Colell" : fase === "preengreix" ? "Ex: Lot de transició" : "Ex: Proveïdor Germans Puig" }]}
-        extraContent={(vals) => {
+        extraContent={(vals, setVals) => {
           const caps = parseInt(vals.caps) || 0;
           const pp = parseFloat(vals.pesPorc) || 0;
           const pt = parseFloat(vals.pesKg) || 0;
-          if (pp > 0 && caps > 0 && !pt) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>;
-          if (pt > 0 && caps > 0) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>;
-          return null;
+          const esExterna = vals.compraExterna !== false; // per defecte marcat (compra externa)
+          return (
+            <div>
+              {pp > 0 && caps > 0 && !pt && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>}
+              {pt > 0 && caps > 0 && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>}
+              {esLotReposicio && <div style={{ marginBottom: 14, background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: "12px 14px", border: "1px solid var(--modal-border)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#fff" }}>
+                  <input type="checkbox" checked={esExterna} onChange={e => setVals(v => ({ ...v, compraExterna: e.target.checked }))} style={{ width: 18, height: 18 }} />
+                  Compra de granja externa
+                </label>
+                {!esExterna && <div style={{ marginTop: 12 }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: "#a0f0d0", display: "block", marginBottom: 7 }}>Són animals d'autoreposició — identifica el lot d'origen</label>
+                  <select value={vals.autoRepLot || ""} onChange={e => setVals(v => ({ ...v, autoRepLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}>
+                    <option value="">— Selecciona el lot d'origen —</option>
+                    {lotsAutoRep.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Es registrarà també la sortida corresponent del lot d'origen.</div>
+                </div>}
+              </div>}
+            </div>
+          );
         }}
         onConfirm={handleEntrada} onCancel={() => setModal(null)} />}
 
