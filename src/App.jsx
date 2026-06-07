@@ -410,7 +410,7 @@ function ModalForm({ title, fields, onConfirm, onCancel, confirmLabel, confirmCo
           <div key={f.key} style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{f.label}</label>
             {f.type === "select"
-              ? <select value={vals[f.key]} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}>{f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+              ? <select value={vals[f.key]} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}>{f.options.map(o => <option key={o.value} value={o.value} style={{ background: "#293548", color: "#fff" }}>{o.label}</option>)}</select>
               : <input type={f.type} value={vals[f.key]} placeholder={f.placeholder || ""} inputMode={f.inputMode} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} />
             }
           </div>
@@ -828,8 +828,8 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja de destí (Transició)</label>
                 <select value={granjaDestiId} onChange={e => setGranjaDestiId(e.target.value)} style={{ ...inp }}>
-                  <option value="">— Selecciona una granja —</option>
-                  {grangesTransicio.map(g => <option key={g.id} value={g.id}>{g.nom}</option>)}
+                  <option value="" style={{ background: "#293548", color: "#fff" }}>— Selecciona una granja —</option>
+                  {grangesTransicio.map(g => <option key={g.id} value={g.id} style={{ background: "#293548", color: "#fff" }}>{g.nom}</option>)}
                 </select>
               </div>
               <div style={{ marginBottom: 16 }}>
@@ -1872,8 +1872,8 @@ function AppInterna() {
                 {!esExterna && <div style={{ marginTop: 12 }}>
                   <label style={{ fontSize: 13, fontWeight: 600, color: "#a0f0d0", display: "block", marginBottom: 7 }}>Són animals d'autoreposició — identifica el lot d'origen</label>
                   <select value={vals.autoRepLot || ""} onChange={e => setVals(v => ({ ...v, autoRepLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}>
-                    <option value="">— Selecciona el lot d'origen —</option>
-                    {lotsAutoRep.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    <option value="" style={{ background: "#293548", color: "#fff" }}>— Selecciona el lot d'origen —</option>
+                    {lotsAutoRep.map(o => <option key={o.value} value={o.value} style={{ background: "#293548", color: "#fff" }}>{o.label}</option>)}
                   </select>
                   <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Es registrarà també la sortida corresponent del lot d'origen.</div>
                 </div>}
@@ -1894,7 +1894,7 @@ function AppInterna() {
               {pp > 0 && caps > 0 && !pt && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>}
               {pt > 0 && caps > 0 && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>}
               {(vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") && <div style={{ marginBottom: 14, background: "rgba(29,158,117,0.15)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(29,158,117,0.3)" }}><div style={{ fontSize: 13, color: "#a0f0d0", fontWeight: 600, marginBottom: 4 }}>✨ Flux automàtic</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{vals.tipusDesti === "nouPreengreix" ? "Es crearà un nou lot de pre-engreix automàticament." : "Es crearà un nou lot d'engreix directament."}</div></div>}
-              {vals.tipusDesti === "lot" && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Lot de destí</label><select value={vals.destiLot || ""} onChange={e => setVals(v => ({ ...v, destiLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}><option value="">— Selecciona —</option>{lotsPerDesti.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>}
+              {vals.tipusDesti === "lot" && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Lot de destí</label><select value={vals.destiLot || ""} onChange={e => setVals(v => ({ ...v, destiLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}><option value="" style={{ background: "#293548", color: "#fff" }}>— Selecciona —</option>{lotsPerDesti.map(o => <option key={o.value} value={o.value} style={{ background: "#293548", color: "#fff" }}>{o.label}</option>)}</select></div>}
               {(vals.tipusDesti === "escorxador" || vals.tipusDesti === "altre") && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{vals.tipusDesti === "escorxador" ? "Nom escorxador (opcional)" : "Destí (opcional)"}</label><input type="text" value={vals.desti || ""} onChange={e => setVals(v => ({ ...v, desti: e.target.value }))} placeholder={vals.tipusDesti === "escorxador" ? "Ex: Escorxador Girona" : "Ex: Venda directa"} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} /></div>}
             </div>
           );
@@ -1941,8 +1941,8 @@ function AppInterna() {
               <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Nom del nou lot de {fcDesti.label}</label><input type="text" placeholder={"Ex: " + (fd === "preengreix" ? "Pre" : "Lot") + " C-26"} value={sortidaPendent.nomLot || ""} onChange={e => setSortidaPendent(p => ({ ...p, nomLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} /></div>
               <div style={{ marginBottom: 20 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Granja de destí</label>
                 <select value={sortidaPendent.granjaDestiId || ""} onChange={e => setSortidaPendent(p => ({ ...p, granjaDestiId: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}>
-                  <option value="">— Selecciona una granja —</option>
-                  {(data[fd] || []).map(g => <option key={g.id} value={g.id}>{g.nom}</option>)}
+                  <option value="" style={{ background: "#293548", color: "#fff" }}>— Selecciona una granja —</option>
+                  {(data[fd] || []).map(g => <option key={g.id} value={g.id} style={{ background: "#293548", color: "#fff" }}>{g.nom}</option>)}
                 </select>
               </div>
               <button onClick={async () => {
