@@ -122,14 +122,12 @@ function destiOptions(fase) {
   ];
   if (fase === "preengreix") return [
     { value: "nouEngreix",  label: "Nou lot d'engreix" },
-    { value: "nouMares",    label: "Nou lot de Mares" },
     { value: "autoRep",     label: "Mares / Reposició (Auto)" },
     { value: "escorxador",  label: "Escorxador" },
     { value: "lot",         label: "Lot existent" },
     { value: "altre",       label: "Altre" },
   ];
   if (fase === "engreix") return [
-    { value: "nouMares",    label: "Nou lot de Mares" },
     { value: "autoRep",     label: "Mares / Reposició (Auto)" },
     { value: "escorxador",  label: "Escorxador" },
     { value: "lot",         label: "Lot existent" },
