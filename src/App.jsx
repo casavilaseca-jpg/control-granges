@@ -177,44 +177,57 @@ function buildCsv(data, filtres) {
   const { fases, estat, tipusRegistre } = filtres;
   const ok = l => estat === "tots" || (estat === "obert" && l.estat === "obert") || (estat === "tancat" && l.estat === "tancat");
   const lines = [];
+  // Ordena per data, de la més recent a la més antiga (les sense data, al final)
+  const ordenarDesc = arr => arr.sort((a, b) => (b.d || "").localeCompare(a.d || "")).map(x => x.r);
   if (tipusRegistre.includes("resum")) {
     lines.push("=== RESUM DE LOTS ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data inici", "Dies", "Caps entrada", "Caps actuals", "Caps sortits", "Baixes", "% Mortalitat", "Pes entrada mig", "Pes sortida mig", "Guany/cap", "GMD"]));
+    const rows = [];
     fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => {
       const st = calcStats(l);
       const d0 = l.entrades.length > 0 ? l.entrades.reduce((m, e) => e.data < m ? e.data : m, l.entrades[0].data) : "";
-      lines.push(rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", d0, st.die, st.tCE, st.cap, st.tCS, st.tB, st.pct + "%", st.pem, st.psm ?? "", st.gKg ?? "", st.gmd ?? ""]));
+      rows.push({ d: d0, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", d0, st.die, st.tCE, st.cap, st.tCS, st.tB, st.pct + "%", st.pem, st.psm ?? "", st.gKg ?? "", st.gmd ?? ""]) });
     })));
+    ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
   if (tipusRegistre.includes("entrades")) {
     lines.push("=== ENTRADES ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Pes total (kg)", "Pes mig (kg/cap)", "Origen"]));
-    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.entrades.forEach(e => lines.push(rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", e.data, e.caps, e.pesKg, (e.pesKg / e.caps).toFixed(2), e.origen]))))));
+    const rows = [];
+    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.entrades.forEach(e => rows.push({ d: e.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", e.data, e.caps, e.pesKg, (e.pesKg / e.caps).toFixed(2), e.origen]) })))));
+    ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
   if (tipusRegistre.includes("sortides")) {
     lines.push("=== SORTIDES ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Pes total (kg)", "Pes mig (kg/cap)", "Tipus destí", "Destí"]));
-    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.sortides.forEach(s => lines.push(rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", s.data, s.caps, s.pesKg, (s.pesKg / s.caps).toFixed(2), s.tipusDesti, s.desti]))))));
+    const rows = [];
+    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.sortides.forEach(s => rows.push({ d: s.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", s.data, s.caps, s.pesKg, (s.pesKg / s.caps).toFixed(2), s.tipusDesti, s.desti]) })))));
+    ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
   if (tipusRegistre.includes("baixes")) {
     lines.push("=== BAIXES ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Causa", "% Mort acumulada"]));
+    const rows = [];
     fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => {
       const tCE = l.entrades.reduce((s, e) => s + e.caps, 0); let bAcum = 0;
+      // El % acumulat es calcula en ordre cronològic ascendent dins el lot
       [...l.baixes].sort((a, b) => a.data.localeCompare(b.data)).forEach(b => {
         bAcum += b.caps;
-        lines.push(rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", b.data, b.caps, b.causa, tCE > 0 ? ((bAcum / tCE) * 100).toFixed(1) + "%" : ""]));
+        rows.push({ d: b.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", b.data, b.caps, b.causa, tCE > 0 ? ((bAcum / tCE) * 100).toFixed(1) + "%" : ""]) });
       });
     })));
+    ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
   if (tipusRegistre.includes("tractaments")) {
     lines.push("=== TRACTAMENTS ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data", "Medicament", "Recepta", "Animals tractats", "Caps"]));
-    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => (l.tractaments || []).forEach(t => lines.push(rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", t.data, t.medicament, t.recepta, t.identificacio, t.caps || ""]))))));
+    const rows = [];
+    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => (l.tractaments || []).forEach(t => rows.push({ d: t.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", t.data, t.medicament, t.recepta, t.identificacio, t.caps || ""]) })))));
+    ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
   return "\uFEFF" + lines.join("\n");
