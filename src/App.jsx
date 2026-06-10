@@ -1504,6 +1504,7 @@ function AppInterna() {
   });
   const [confirmarEliminar, setConfirmarEliminar] = useState(null);
   const [editantEntrada, setEditantEntrada] = useState(null);
+  const [editantBaixa, setEditantBaixa] = useState(null);
 
   useEffect(() => {
     carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
@@ -1674,6 +1675,19 @@ function AppInterna() {
     toast("Entrada actualitzada ✓"); setModal(null); setEditantEntrada(null);
   };
 
+  const handleEditarBaixa = async vals => {
+    if (!vals.data || !vals.caps || parseInt(vals.caps) < 1) return;
+    await supabase.from("baixes").update({ data: vals.data, caps: parseInt(vals.caps), causa: vals.causa || "" }).eq("id", editantBaixa.id);
+    const newData = await carregarTot(); setData(newData);
+    toast("Baixa actualitzada ✓"); setModal(null); setEditantBaixa(null);
+  };
+
+  const handleEliminarBaixa = async () => {
+    await supabase.from("baixes").delete().eq("id", editantBaixa.id);
+    const newData = await carregarTot(); setData(newData);
+    toast("Baixa eliminada ✓"); setModal(null); setEditantBaixa(null);
+  };
+
   const handleGuardarDesmamats = async ({ granja, data: dataDes, garrins }) => {
     const { error } = await supabase.from("desmamats").insert({ granja, data: dataDes, garrins });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
@@ -1748,7 +1762,7 @@ function AppInterna() {
           )}
           {tabLot === "entrades" && lot.entrades.map((e, i) => (<div key={e.id} style={{ background: "var(--color-background-secondary)", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Entrada {i + 1}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{e.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantEntrada(e); setModal("editarEntrada"); }} style={{ border: "none", background: "transparent", color: "#aaa", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar entrada">✏️</button>}</div></div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{e.caps} caps</div><div style={{ fontSize: 13, color: "#555" }}>{e.pesKg > 0 ? `${e.pesKg.toLocaleString()} kg · ${(e.pesKg / e.caps).toFixed(1)} kg/cap` : <span style={{ color: "#f59e0b" }}>Pes pendent</span>}</div>{e.origen && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>📦 {e.origen}</div>}</div>))}
           {tabLot === "sortides" && (lot.sortides.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense sortides</div> : lot.sortides.map((e, i) => (<div key={e.id} style={{ background: "var(--color-background-secondary)", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Sortida {i + 1}</span><span style={{ fontSize: 12, color: "#888" }}>{e.data}</span></div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{e.caps} caps</div><div style={{ fontSize: 13, color: "#555" }}>{e.pesKg.toLocaleString()} kg · {(e.pesKg / e.caps).toFixed(1)} kg/cap</div>{e.desti && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>📍 {e.desti}</div>}</div>)))}
-          {tabLot === "baixes" && (lot.baixes.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense baixes</div> : [...lot.baixes].reverse().map(b => (<div key={b.id} style={{ background: "#FFF5F5", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontWeight: 600, color: "#E24B4A" }}>{b.caps} cap{b.caps > 1 ? "s" : ""}</span><span style={{ fontSize: 12, color: "#888" }}>{b.data}</span></div>{b.causa && <div style={{ fontSize: 13, color: "#555" }}>Causa: {b.causa}</div>}</div>)))}
+          {tabLot === "baixes" && (lot.baixes.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense baixes</div> : [...lot.baixes].reverse().map(b => (<div key={b.id} style={{ background: "#FFF5F5", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600, color: "#E24B4A" }}>{b.caps} cap{b.caps > 1 ? "s" : ""}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{b.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantBaixa(b); setModal("editarBaixa"); }} style={{ border: "none", background: "transparent", color: "#bbb", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar baixa">✏️</button>}</div></div>{b.causa && <div style={{ fontSize: 13, color: "#555" }}>Causa: {b.causa}</div>}</div>)))}
           {tabLot === "tractaments" && (tracts.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense tractaments</div> : [...tracts].reverse().map(t => (<div key={t.id} style={{ background: "#F0F4FF", borderRadius: 12, padding: "14px", marginBottom: 8, border: "1px solid #D0DCFF" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}><span style={{ fontWeight: 700, fontSize: 14, color: "#1A4DB0" }}>💊 {t.medicament}</span><span style={{ fontSize: 12, color: "#888" }}>{t.data}</span></div>{t.recepta && <div style={{ fontSize: 12, color: "#555", marginBottom: 3 }}>📋 Recepta: <strong>{t.recepta}</strong></div>}<div style={{ fontSize: 12, color: "#555" }}>🐷 {t.identificacio}{t.caps > 0 ? " (" + t.caps + " caps)" : ""}</div></div>)))}
         </div>
         {lot.estat === "obert" && (
@@ -1973,6 +1987,23 @@ function AppInterna() {
           return null;
         }}
         onConfirm={handleEditarEntrada} onCancel={() => { setModal(null); setEditantEntrada(null); }} />}
+
+      {modal === "editarBaixa" && editantBaixa && <ModalForm title="Editar baixa" confirmLabel="Guardar canvis" confirmColor="#C0392B"
+        fields={[{ key: "data", label: "Data", type: "date", default: editantBaixa.data }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantBaixa.caps) }, { key: "causa", label: "Causa (opcional)", type: "text", default: editantBaixa.causa || "" }]}
+        extraContent={(vals, setVals) => (
+          <div style={{ marginTop: 4, marginBottom: 4 }}>
+            {!vals._confirmDel
+              ? <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: true }))} style={{ width: "100%", padding: "12px", border: "1.5px solid #E24B4A", borderRadius: 12, background: "transparent", color: "#E24B4A", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>🗑️ Eliminar aquesta baixa</button>
+              : <div style={{ background: "rgba(226,75,74,0.12)", border: "1px solid rgba(226,75,74,0.4)", borderRadius: 12, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 13, color: "#fca5a5", marginBottom: 10 }}>Segur que vols eliminar aquesta baixa? Aquesta acció no es pot desfer.</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" onClick={handleEliminarBaixa} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#E24B4A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Sí, eliminar</button>
+                    <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: false }))} style={{ flex: 1, padding: "11px", border: "1.5px solid var(--modal-border)", borderRadius: 10, background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 14, cursor: "pointer" }}>No</button>
+                  </div>
+                </div>}
+          </div>
+        )}
+        onConfirm={handleEditarBaixa} onCancel={() => { setModal(null); setEditantBaixa(null); }} />}
 
       {modal === "novaGranja" && <ModalForm title="Nova granja" confirmLabel="Crear granja" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom de la granja", type: "text", placeholder: "Ex: Granja Can Puig" }]} onConfirm={handleNovaGranja} onCancel={() => setModal(null)} />}
 
