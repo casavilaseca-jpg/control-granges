@@ -1505,6 +1505,8 @@ function AppInterna() {
   const [confirmarEliminar, setConfirmarEliminar] = useState(null);
   const [editantEntrada, setEditantEntrada] = useState(null);
   const [editantBaixa, setEditantBaixa] = useState(null);
+  const [editantSortida, setEditantSortida] = useState(null);
+  const [editantTractament, setEditantTractament] = useState(null);
 
   useEffect(() => {
     carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
@@ -1688,6 +1690,35 @@ function AppInterna() {
     toast("Baixa eliminada ✓"); setModal(null); setEditantBaixa(null);
   };
 
+  const handleEditarSortida = async vals => {
+    if (!vals.data || !vals.caps || parseInt(vals.caps) < 1) return;
+    const caps = parseInt(vals.caps);
+    let pesKg = parseFloat(vals.pesKg) || 0;
+    if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
+    await supabase.from("sortides").update({ data: vals.data, caps, pes_kg: pesKg }).eq("id", editantSortida.id);
+    const newData = await carregarTot(); setData(newData);
+    toast("Sortida actualitzada ✓"); setModal(null); setEditantSortida(null);
+  };
+
+  const handleEliminarSortida = async () => {
+    await supabase.from("sortides").delete().eq("id", editantSortida.id);
+    const newData = await carregarTot(); setData(newData);
+    toast("Sortida eliminada ✓"); setModal(null); setEditantSortida(null);
+  };
+
+  const handleEditarTractament = async vals => {
+    if (!vals.data || !vals.medicament) return;
+    await supabase.from("tractaments").update({ data: vals.data, medicament: vals.medicament, recepta: vals.recepta || "", identificacio: vals.identificacio || "Corral infermeria", caps: parseInt(vals.caps) || 0 }).eq("id", editantTractament.id);
+    const newData = await carregarTot(); setData(newData);
+    toast("Tractament actualitzat ✓"); setModal(null); setEditantTractament(null);
+  };
+
+  const handleEliminarTractament = async () => {
+    await supabase.from("tractaments").delete().eq("id", editantTractament.id);
+    const newData = await carregarTot(); setData(newData);
+    toast("Tractament eliminat ✓"); setModal(null); setEditantTractament(null);
+  };
+
   const handleGuardarDesmamats = async ({ granja, data: dataDes, garrins }) => {
     const { error } = await supabase.from("desmamats").insert({ granja, data: dataDes, garrins });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
@@ -1761,9 +1792,9 @@ function AppInterna() {
             </div>
           )}
           {tabLot === "entrades" && lot.entrades.map((e, i) => (<div key={e.id} style={{ background: "var(--color-background-secondary)", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Entrada {i + 1}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{e.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantEntrada(e); setModal("editarEntrada"); }} style={{ border: "none", background: "transparent", color: "#aaa", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar entrada">✏️</button>}</div></div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{e.caps} caps</div><div style={{ fontSize: 13, color: "#555" }}>{e.pesKg > 0 ? `${e.pesKg.toLocaleString()} kg · ${(e.pesKg / e.caps).toFixed(1)} kg/cap` : <span style={{ color: "#f59e0b" }}>Pes pendent</span>}</div>{e.origen && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>📦 {e.origen}</div>}</div>))}
-          {tabLot === "sortides" && (lot.sortides.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense sortides</div> : lot.sortides.map((e, i) => (<div key={e.id} style={{ background: "var(--color-background-secondary)", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Sortida {i + 1}</span><span style={{ fontSize: 12, color: "#888" }}>{e.data}</span></div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{e.caps} caps</div><div style={{ fontSize: 13, color: "#555" }}>{e.pesKg.toLocaleString()} kg · {(e.pesKg / e.caps).toFixed(1)} kg/cap</div>{e.desti && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>📍 {e.desti}</div>}</div>)))}
+          {tabLot === "sortides" && (lot.sortides.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense sortides</div> : lot.sortides.map((e, i) => (<div key={e.id} style={{ background: "var(--color-background-secondary)", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Sortida {i + 1}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{e.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantSortida(e); setModal("editarSortida"); }} style={{ border: "none", background: "transparent", color: "#aaa", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar sortida">✏️</button>}</div></div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{e.caps} caps</div><div style={{ fontSize: 13, color: "#555" }}>{e.pesKg.toLocaleString()} kg · {(e.pesKg / e.caps).toFixed(1)} kg/cap</div>{e.desti && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>📍 {e.desti}</div>}</div>)))}
           {tabLot === "baixes" && (lot.baixes.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense baixes</div> : [...lot.baixes].reverse().map(b => (<div key={b.id} style={{ background: "#FFF5F5", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600, color: "#E24B4A" }}>{b.caps} cap{b.caps > 1 ? "s" : ""}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{b.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantBaixa(b); setModal("editarBaixa"); }} style={{ border: "none", background: "transparent", color: "#bbb", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar baixa">✏️</button>}</div></div>{b.causa && <div style={{ fontSize: 13, color: "#555" }}>Causa: {b.causa}</div>}</div>)))}
-          {tabLot === "tractaments" && (tracts.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense tractaments</div> : [...tracts].reverse().map(t => (<div key={t.id} style={{ background: "#F0F4FF", borderRadius: 12, padding: "14px", marginBottom: 8, border: "1px solid #D0DCFF" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}><span style={{ fontWeight: 700, fontSize: 14, color: "#1A4DB0" }}>💊 {t.medicament}</span><span style={{ fontSize: 12, color: "#888" }}>{t.data}</span></div>{t.recepta && <div style={{ fontSize: 12, color: "#555", marginBottom: 3 }}>📋 Recepta: <strong>{t.recepta}</strong></div>}<div style={{ fontSize: 12, color: "#555" }}>🐷 {t.identificacio}{t.caps > 0 ? " (" + t.caps + " caps)" : ""}</div></div>)))}
+          {tabLot === "tractaments" && (tracts.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense tractaments</div> : [...tracts].reverse().map(t => (<div key={t.id} style={{ background: "#F0F4FF", borderRadius: 12, padding: "14px", marginBottom: 8, border: "1px solid #D0DCFF" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}><span style={{ fontWeight: 700, fontSize: 14, color: "#1A4DB0" }}>💊 {t.medicament}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{t.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantTractament(t); setModal("editarTractament"); }} style={{ border: "none", background: "transparent", color: "#aaa", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar tractament">✏️</button>}</div></div>{t.recepta && <div style={{ fontSize: 12, color: "#555", marginBottom: 3 }}>📋 Recepta: <strong>{t.recepta}</strong></div>}<div style={{ fontSize: 12, color: "#555" }}>🐷 {t.identificacio}{t.caps > 0 ? " (" + t.caps + " caps)" : ""}</div></div>)))}
         </div>
         {lot.estat === "obert" && (
           <div style={{ padding: "16px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2004,6 +2035,41 @@ function AppInterna() {
           </div>
         )}
         onConfirm={handleEditarBaixa} onCancel={() => { setModal(null); setEditantBaixa(null); }} />}
+
+      {modal === "editarSortida" && editantSortida && <ModalForm title="Editar sortida" confirmLabel="Guardar canvis" confirmColor="#1A4DB0" capsActuals={editantSortida.caps}
+        fields={[{ key: "data", label: "Data", type: "date", default: editantSortida.data }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantSortida.caps) }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 95.0" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal", default: editantSortida.pesKg > 0 ? String(editantSortida.pesKg) : "" }]}
+        extraContent={(vals, setVals) => (
+          <div style={{ marginTop: 4, marginBottom: 4 }}>
+            {(editantSortida.tipusDesti === "lot" || editantSortida.tipusDesti === "autoRep") && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 10, fontSize: 12, color: "#fcd34d" }}>⚠️ Aquesta sortida va generar una entrada automàtica al lot destí. Si la modifiques o elimines, recorda corregir també l'entrada del lot destí.</div>}
+            {!vals._confirmDel
+              ? <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: true }))} style={{ width: "100%", padding: "12px", border: "1.5px solid #E24B4A", borderRadius: 12, background: "transparent", color: "#E24B4A", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>🗑️ Eliminar aquesta sortida</button>
+              : <div style={{ background: "rgba(226,75,74,0.12)", border: "1px solid rgba(226,75,74,0.4)", borderRadius: 12, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 13, color: "#fca5a5", marginBottom: 10 }}>Segur que vols eliminar aquesta sortida? Aquesta acció no es pot desfer.</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" onClick={handleEliminarSortida} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#E24B4A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Sí, eliminar</button>
+                    <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: false }))} style={{ flex: 1, padding: "11px", border: "1.5px solid var(--modal-border)", borderRadius: 10, background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 14, cursor: "pointer" }}>No</button>
+                  </div>
+                </div>}
+          </div>
+        )}
+        onConfirm={handleEditarSortida} onCancel={() => { setModal(null); setEditantSortida(null); }} />}
+
+      {modal === "editarTractament" && editantTractament && <ModalForm title="Editar tractament" confirmLabel="Guardar canvis" confirmColor="#1A4DB0"
+        fields={[{ key: "data", label: "Data", type: "date", default: editantTractament.data }, { key: "medicament", label: "Nom comercial del medicament", type: "text", default: editantTractament.medicament }, { key: "recepta", label: "Número de recepta", type: "text", default: editantTractament.recepta || "" }, { key: "caps", label: "Nombre d'animals tractats (opcional)", type: "number", inputMode: "numeric", default: editantTractament.caps ? String(editantTractament.caps) : "" }, { key: "identificacio", label: "Identificació dels animals", type: "text", default: editantTractament.identificacio || "Corral infermeria" }]}
+        extraContent={(vals, setVals) => (
+          <div style={{ marginTop: 4, marginBottom: 4 }}>
+            {!vals._confirmDel
+              ? <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: true }))} style={{ width: "100%", padding: "12px", border: "1.5px solid #E24B4A", borderRadius: 12, background: "transparent", color: "#E24B4A", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>🗑️ Eliminar aquest tractament</button>
+              : <div style={{ background: "rgba(226,75,74,0.12)", border: "1px solid rgba(226,75,74,0.4)", borderRadius: 12, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 13, color: "#fca5a5", marginBottom: 10 }}>Segur que vols eliminar aquest tractament? Aquesta acció no es pot desfer.</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" onClick={handleEliminarTractament} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#E24B4A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Sí, eliminar</button>
+                    <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: false }))} style={{ flex: 1, padding: "11px", border: "1.5px solid var(--modal-border)", borderRadius: 10, background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 14, cursor: "pointer" }}>No</button>
+                  </div>
+                </div>}
+          </div>
+        )}
+        onConfirm={handleEditarTractament} onCancel={() => { setModal(null); setEditantTractament(null); }} />}
 
       {modal === "novaGranja" && <ModalForm title="Nova granja" confirmLabel="Crear granja" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom de la granja", type: "text", placeholder: "Ex: Granja Can Puig" }]} onConfirm={handleNovaGranja} onCancel={() => setModal(null)} />}
 
