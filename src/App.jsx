@@ -1677,6 +1677,12 @@ function AppInterna() {
     toast("Entrada actualitzada ✓"); setModal(null); setEditantEntrada(null);
   };
 
+  const handleEliminarEntrada = async () => {
+    await supabase.from("entrades").delete().eq("id", editantEntrada.id);
+    const newData = await carregarTot(); setData(newData);
+    toast("Entrada eliminada ✓"); setModal(null); setEditantEntrada(null);
+  };
+
   const handleEditarBaixa = async vals => {
     if (!vals.data || !vals.caps || parseInt(vals.caps) < 1) return;
     await supabase.from("baixes").update({ data: vals.data, caps: parseInt(vals.caps), causa: vals.causa || "" }).eq("id", editantBaixa.id);
@@ -2009,13 +2015,27 @@ function AppInterna() {
 
       {modal === "editarEntrada" && editantEntrada && <ModalForm title="Editar entrada" confirmLabel="Guardar canvis" confirmColor={fc.color} capsActuals={editantEntrada.caps}
         fields={[{ key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 6.5" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
-        extraContent={(vals) => {
+        extraContent={(vals, setVals) => {
           const caps = parseInt(vals.caps) || 0;
           const pp = parseFloat(vals.pesPorc) || 0;
           const pt = parseFloat(vals.pesKg) || 0;
-          if (pp > 0 && caps > 0 && !pt) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>;
-          if (pt > 0 && caps > 0) return <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>;
-          return null;
+          return (
+            <div>
+              {pp > 0 && caps > 0 && !pt && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>}
+              {pt > 0 && caps > 0 && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>}
+              <div style={{ marginTop: 4, marginBottom: 4 }}>
+                {!vals._confirmDel
+                  ? <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: true }))} style={{ width: "100%", padding: "12px", border: "1.5px solid #E24B4A", borderRadius: 12, background: "transparent", color: "#E24B4A", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>🗑️ Eliminar aquesta entrada</button>
+                  : <div style={{ background: "rgba(226,75,74,0.12)", border: "1px solid rgba(226,75,74,0.4)", borderRadius: 12, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 13, color: "#fca5a5", marginBottom: 10 }}>Segur que vols eliminar aquesta entrada? Aquesta acció no es pot desfer.</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="button" onClick={handleEliminarEntrada} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#E24B4A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Sí, eliminar</button>
+                        <button type="button" onClick={() => setVals(v => ({ ...v, _confirmDel: false }))} style={{ flex: 1, padding: "11px", border: "1.5px solid var(--modal-border)", borderRadius: 10, background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 14, cursor: "pointer" }}>No</button>
+                      </div>
+                    </div>}
+              </div>
+            </div>
+          );
         }}
         onConfirm={handleEditarEntrada} onCancel={() => { setModal(null); setEditantEntrada(null); }} />}
 
