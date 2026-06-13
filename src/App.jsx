@@ -173,6 +173,37 @@ async function carregarTot() {
 // ── CSV ────────────────────────────────────────────────────────────────────
 function esc(v) { const s = String(v ?? ""); return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : "" + s; }
 function rowCsv(arr) { return arr.map(esc).join(","); }
+// Parteix una línia CSV en cel·les respectant les cometes
+function parseCsvLine(line) {
+  const cells = []; let cur = ""; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ",") { cells.push(cur); cur = ""; }
+      else cur += c;
+    }
+  }
+  cells.push(cur);
+  return cells;
+}
+// Agrupa les línies CSV en seccions { titol, header, rows }
+function csvToSeccions(lines) {
+  const seccions = []; let actual = null;
+  lines.forEach(l => {
+    const m = l.match(/^=== (.+) ===$/);
+    if (m) { actual = { titol: m[1], header: null, rows: [] }; seccions.push(actual); }
+    else if (actual) {
+      const cells = parseCsvLine(l);
+      if (!actual.header) actual.header = cells;
+      else actual.rows.push(cells);
+    }
+  });
+  return seccions;
+}
 function buildCsv(data, filtres) {
   const { fases, estat, tipusRegistre } = filtres;
   const ok = l => estat === "tots" || (estat === "obert" && l.estat === "obert") || (estat === "tancat" && l.estat === "tancat");
@@ -286,7 +317,36 @@ function PantallaExportacio({ data, onLogout }) {
       <button onClick={() => setPreview(v => !v)} style={{ width: "100%", padding: "11px", border: "1.5px solid #ddd", borderRadius: 12, background: "transparent", fontSize: 13, color: "#555", cursor: "pointer", marginBottom: 10 }}>
         {preview ? "▲ Amagar previsualització" : "▼ Previsualitzar dades"}
       </button>
-      {preview && <div style={{ background: "#1e293b", borderRadius: 12, padding: "12px", marginBottom: 14, overflowX: "auto" }}><pre style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", margin: 0, whiteSpace: "pre", fontFamily: "monospace" }}>{lines.slice(0, 40).join("\n")}{lines.length > 40 ? "\n... i " + (lines.length - 40) + " línies més" : ""}</pre></div>}
+      {preview && (
+        <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 16 }}>
+          {csvToSeccions(lines).map((sec, si) => {
+            const visibles = sec.rows.slice(0, 30);
+            return (
+              <div key={si} style={{ background: "#1e293b", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "9px 12px", fontSize: 12, fontWeight: 700, color: "#fff", background: "rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{sec.titol}</span>
+                  <span style={{ fontSize: 11, fontWeight: 400, color: "rgba(255,255,255,0.5)" }}>{sec.rows.length} {sec.rows.length === 1 ? "registre" : "registres"}</span>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11, color: "rgba(255,255,255,0.85)" }}>
+                    <thead>
+                      <tr>{(sec.header || []).map((h, hi) => <th key={hi} style={{ textAlign: "left", padding: "6px 10px", whiteSpace: "nowrap", fontWeight: 600, color: "rgba(255,255,255,0.6)", borderBottom: "1px solid rgba(255,255,255,0.12)", position: "sticky", top: 0, background: "#1e293b" }}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {visibles.map((row, ri) => (
+                        <tr key={ri} style={{ background: ri % 2 ? "rgba(255,255,255,0.03)" : "transparent" }}>
+                          {row.map((c, ci) => <td key={ci} style={{ padding: "5px 10px", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{c}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {sec.rows.length > 30 && <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(255,255,255,0.45)" }}>… i {sec.rows.length - 30} registres més (es descarregaran tots al CSV)</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <button onClick={() => downloadCsv(csvStr, "granges_" + TODAY + ".csv")} disabled={filtFases.length === 0 || filtTipus.length === 0}
         style={{ width: "100%", padding: "16px", background: filtFases.length > 0 && filtTipus.length > 0 ? "#1D9E75" : "#ccc", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <span style={{ fontSize: 20 }}>⬇️</span> Descarregar CSV
