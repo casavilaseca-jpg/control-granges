@@ -1226,6 +1226,7 @@ function isoWeek(date) {
 function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const fasesOrdre = ["transicio", "preengreix", "engreix", "mares"];
   const [escala, setEscala] = useState("1s");
+  const [fasesVis, setFasesVis] = useState({ transicio: true, preengreix: true, engreix: true, mares: true });
 
   // Calculs per fase
   const statsPerFase = fasesOrdre.map(f => {
@@ -1251,20 +1252,20 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
         const s = new Date(new Date(TODAY) - msAgo);
         const e = new Date(s.getTime() + 86400000);
         const lbl = i % lblInterval === 0 ? String(s.getDate()) : "";
-        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl };
+        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl, we: [0, 6].includes(s.getDay()) };
       })
     : tipus === "s"
     ? Array.from({ length: N }, (_, i) => {
         const msAgo = (N - 1 - i) * 7 * 86400000;
         const s = new Date(new Date(TODAY) - msAgo);
         const e = new Date(new Date(TODAY) - msAgo + 7 * 86400000);
-        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: `S${isoWeek(s)}` };
+        return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), lbl: `S${isoWeek(s)}`, we: false };
       })
     : Array.from({ length: N }, (_, i) => {
         const d = new Date(TODAY); d.setDate(1); d.setMonth(d.getMonth() - (N - 1 - i));
         const start = d.toISOString().slice(0, 10);
         const e2 = new Date(d); e2.setMonth(e2.getMonth() + 1);
-        return { start, end: e2.toISOString().slice(0, 10), lbl: MESOS_CURT[d.getMonth()] };
+        return { start, end: e2.toISOString().slice(0, 10), lbl: MESOS_CURT[d.getMonth()], we: false };
       });
 
   const weeklyPerFase = fasesOrdre.map(f => {
@@ -1275,7 +1276,8 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
     return { f, info: FASES[f], vals };
   });
 
-  const maxVal = Math.max(1, ...weeklyPerFase.flatMap(d => d.vals));
+  const visPerFase = weeklyPerFase.filter(d => fasesVis[d.f]);
+  const maxVal = Math.max(1, ...visPerFase.flatMap(d => d.vals));
   const CW = 300; const CH = 150;
   const padL = 26; const padB = 16; const padT = 10; const padR = 6;
   const nPts = buckets.length;
@@ -1284,11 +1286,11 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
 
   // Enriquiment gràfic: totals i tendència vs període anterior
   const fasaTotals = weeklyPerFase.map(d => ({ ...d, tot: d.vals.reduce((s, v) => s + v, 0) }));
-  const periodeTotal = fasaTotals.reduce((s, d) => s + d.tot, 0);
+  const periodeTotal = fasaTotals.filter(d => fasesVis[d.f]).reduce((s, d) => s + d.tot, 0);
   const winStart = buckets[0]?.start; const winEnd = buckets[buckets.length - 1]?.end;
   const durMs = (winStart && winEnd) ? (new Date(winEnd) - new Date(winStart)) : 0;
   const prevStart = winStart ? new Date(new Date(winStart) - durMs).toISOString().slice(0, 10) : null;
-  const prevTotal = (prevStart && winStart) ? fasesOrdre.reduce((s, f) =>
+  const prevTotal = (prevStart && winStart) ? fasesOrdre.filter(f => fasesVis[f]).reduce((s, f) =>
     s + (data[f] || []).flatMap(g => g.lots).reduce((ss, l) =>
       ss + l.baixes.filter(b => b.data >= prevStart && b.data < winStart).reduce((sss, b) => sss + b.caps, 0), 0), 0) : 0;
   const trendPct = prevTotal > 0 ? Math.round(((periodeTotal - prevTotal) / prevTotal) * 100) : null;
@@ -1429,6 +1431,10 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                     </linearGradient>
                   ))}
                 </defs>
+                {/* Marca subtil de caps de setmana (només vista diària) */}
+                {buckets.map((b, i) => b.we && (
+                  <rect key={`we-${i}`} x={tx(i) - (CW - padL - padR) / Math.max(nPts - 1, 1) / 2} y={padT} width={(CW - padL - padR) / Math.max(nPts - 1, 1)} height={CH - padT - padB} fill="#6366f1" opacity="0.05" />
+                ))}
                 {/* Grid horitzontal + etiquetes eix Y */}
                 {[...new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map(r => Math.round(maxVal * r)))].map(val => (
                   <g key={val}>
@@ -1436,8 +1442,8 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                     <text x={padL - 4} y={ty(val) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{val}</text>
                   </g>
                 ))}
-                {/* Àrees + línies per fase */}
-                {weeklyPerFase.map(({ f, info, vals }) => {
+                {/* Àrees + línies per fase (només les visibles) */}
+                {weeklyPerFase.filter(d => fasesVis[d.f]).map(({ f, info, vals }) => {
                   const line = vals.map((v, i) => `${tx(i)},${ty(v)}`).join(" ");
                   const area = `${tx(0)},${ty(0)} ${line} ${tx(nPts - 1)},${ty(0)}`;
                   return (
@@ -1453,16 +1459,20 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                   <text key={i} x={tx(i)} y={CH - 2} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
                 ))}
               </svg>
-              {/* Llegenda amb total per fase */}
+              {/* Llegenda amb total per fase — toca per mostrar/amagar */}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-                {fasaTotals.map(({ f, info, tot }) => (
-                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 6, background: "#f8fafc", borderRadius: 8, padding: "4px 9px" }}>
-                    <div style={{ width: 12, height: 3, background: info.color, borderRadius: 2 }} />
-                    <span style={{ fontSize: 10, color: "#64748b" }}>{info.label}</span>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: tot > 0 ? info.colorDark : "#cbd5e1" }}>{tot}</span>
-                  </div>
-                ))}
+                {fasaTotals.map(({ f, info, tot }) => {
+                  const vis = fasesVis[f];
+                  return (
+                    <button key={f} onClick={() => setFasesVis(v => ({ ...v, [f]: !v[f] }))} style={{ display: "flex", alignItems: "center", gap: 6, background: vis ? "#f8fafc" : "transparent", border: "1px solid " + (vis ? "#e2e8f0" : "#f1f5f9"), borderRadius: 8, padding: "4px 9px", cursor: "pointer", opacity: vis ? 1 : 0.45 }}>
+                      <div style={{ width: 12, height: 3, background: info.color, borderRadius: 2 }} />
+                      <span style={{ fontSize: 10, color: "#64748b", textDecoration: vis ? "none" : "line-through" }}>{info.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: tot > 0 ? info.colorDark : "#cbd5e1" }}>{tot}</span>
+                    </button>
+                  );
+                })}
               </div>
+              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 6 }}>Toca una fase per mostrar-la o amagar-la · la franja clara marca els caps de setmana</div>
             </>
           )}
         </div>
