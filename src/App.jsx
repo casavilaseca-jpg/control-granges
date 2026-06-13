@@ -1225,7 +1225,7 @@ function isoWeek(date) {
 
 function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const fasesOrdre = ["transicio", "preengreix", "engreix", "mares"];
-  const [escala, setEscala] = useState("8s");
+  const [escala, setEscala] = useState("1s");
 
   // Calculs per fase
   const statsPerFase = fasesOrdre.map(f => {
