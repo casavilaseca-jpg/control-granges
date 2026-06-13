@@ -1386,12 +1386,18 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
 
       {/* Bloc 2: Gràfic de tendència */}
       <div style={{ margin: "20px 12px 0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tendència de baixes</div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            {ESCALES_GRAF.map(e => (
-              <button key={e.key} onClick={() => setEscala(e.key)} style={{ padding: "4px 8px", border: "1.5px solid " + (escala === e.key ? "#6366f1" : "#e2e8f0"), borderRadius: 8, background: escala === e.key ? "#eef2ff" : "transparent", color: escala === e.key ? "#6366f1" : "#94a3b8", fontSize: 10, fontWeight: escala === e.key ? 700 : 400, cursor: "pointer" }}>{e.label}</button>
-            ))}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tendència de baixes</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#6366f1", background: "#eef2ff", borderRadius: 8, padding: "3px 10px" }}>{escCfg.label}</div>
+          </div>
+          <input type="range" min={0} max={ESCALES_GRAF.length - 1} step={1}
+            value={ESCALES_GRAF.findIndex(e => e.key === escala)}
+            onChange={e => setEscala(ESCALES_GRAF[Number(e.target.value)].key)}
+            style={{ width: "100%", accentColor: "#6366f1", cursor: "pointer", margin: 0 }} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
+            <span style={{ fontSize: 9, color: "#cbd5e1" }}>{ESCALES_GRAF[0].label}</span>
+            <span style={{ fontSize: 9, color: "#cbd5e1" }}>{ESCALES_GRAF[ESCALES_GRAF.length - 1].label}</span>
           </div>
         </div>
         <div style={{ background: "#fff", borderRadius: 16, padding: "16px 14px 12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}>
