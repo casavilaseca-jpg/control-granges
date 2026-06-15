@@ -196,7 +196,7 @@ function parseCsvLine(line) {
 function csvToSeccions(lines) {
   const seccions = []; let actual = null;
   lines.forEach(l => {
-    const m = l.match(/^=== (.+) ===$/);
+    const m = l.replace(/^﻿/, "").match(/^=== (.+) ===$/);
     if (m) { actual = { titol: m[1], header: null, rows: [] }; seccions.push(actual); }
     else if (actual) {
       const cells = parseCsvLine(l);
@@ -287,7 +287,7 @@ function PantallaExportacio({ data, onLogout }) {
   const nT = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.tractaments || []))).length;
   const compt = { resum: nLots, entrades: nE, sortides: nS, baixes: nB, tractaments: nT };
   const csvStr = buildCsv(data, { fases: filtFases, estat: filtEstat, tipusRegistre: filtTipus });
-  const lines = csvStr.split("\n").filter(l => l.trim());
+  const lines = csvStr.replace(/^﻿/, "").split("\n").filter(l => l.trim());
   const pill = (actiu, color = "#1D9E75") => ({ border: `1.5px solid ${actiu ? color : "#e0e0e0"}`, borderRadius: 20, padding: "7px 14px", background: actiu ? `${color}18` : "transparent", color: actiu ? color : "#888", fontSize: 13, fontWeight: actiu ? 600 : 400, cursor: "pointer" });
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 100px" }}>
