@@ -1670,11 +1670,12 @@ function AppInterna() {
   };
 
   const handleSortida = async vals => {
-    if (!vals.data || !vals.caps) return;
+    if (!vals.data) { toast("Falta la data ❌", "alerta"); return; }
+    if (!vals.caps) { toast("Falta el nombre de caps ❌", "alerta"); return; }
     const caps = parseInt(vals.caps);
     let pesKg = parseFloat(vals.pesKg) || 0;
     if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
-    if (!pesKg) return;
+    if (!pesKg) { toast("Falta el pes: omple pes/porc o pes total ❌", "alerta"); return; }
     // autoRep: la sortida va a la Reposició existent (autoreposició) → entrada automàtica
     let destiLotId = vals.tipusDesti === "lot" ? vals.destiLot : null;
     let deLabel;
