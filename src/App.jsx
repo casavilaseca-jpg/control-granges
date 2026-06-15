@@ -115,12 +115,14 @@ const FASES = {
 
 function destiOptions(fase) {
   if (fase === "transicio") return [
+    { value: "nouTransicio",  label: "Nou lot de transició" },
     { value: "nouPreengreix", label: "Nou lot de pre-engreix" },
     { value: "nouEngreix",    label: "Nou lot d'engreix (directe)" },
     { value: "lot",           label: "Lot existent" },
     { value: "altre",         label: "Altre" },
   ];
   if (fase === "preengreix") return [
+    { value: "nouPreengreix", label: "Nou lot de pre-engreix" },
     { value: "nouEngreix",  label: "Nou lot d'engreix" },
     { value: "autoRep",     label: "Mares / Reposició (Auto)" },
     { value: "escorxador",  label: "Escorxador" },
@@ -1694,8 +1696,9 @@ function AppInterna() {
     } else {
       toast("Sortida registrada ✓"); setModal(null);
     }
-    if (vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix" || vals.tipusDesti === "nouMares") {
-      const faseDesti = vals.tipusDesti === "nouPreengreix" ? "preengreix" : vals.tipusDesti === "nouMares" ? "mares" : "engreix";
+    const nouFaseMap = { nouTransicio: "transicio", nouPreengreix: "preengreix", nouEngreix: "engreix", nouMares: "mares" };
+    if (nouFaseMap[vals.tipusDesti]) {
+      const faseDesti = nouFaseMap[vals.tipusDesti];
       setSortidaPendent({ data: vals.data, caps, pesKg, origenNom: (granja?.nom || "") + " / " + (lot?.nom || ""), faseDesti, parentLotId: lotId });
     }
   };
@@ -2071,7 +2074,7 @@ function AppInterna() {
             <div>
               {pp > 0 && caps > 0 && !pt && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(29,158,117,0.15)", borderRadius: 10, fontSize: 13, color: "#a0f0d0" }}>→ Pes total calculat: <strong>{(pp * caps).toFixed(1)} kg</strong></div>}
               {pt > 0 && caps > 0 && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.55)" }}>→ Pes/porc: <strong style={{ color: "rgba(255,255,255,0.85)" }}>{(pt / caps).toFixed(2)} kg/porc</strong></div>}
-              {(vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") && <div style={{ marginBottom: 14, background: "rgba(29,158,117,0.15)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(29,158,117,0.3)" }}><div style={{ fontSize: 13, color: "#a0f0d0", fontWeight: 600, marginBottom: 4 }}>✨ Flux automàtic</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{vals.tipusDesti === "nouPreengreix" ? "Es crearà un nou lot de pre-engreix automàticament." : "Es crearà un nou lot d'engreix directament."}</div></div>}
+              {(vals.tipusDesti === "nouTransicio" || vals.tipusDesti === "nouPreengreix" || vals.tipusDesti === "nouEngreix") && <div style={{ marginBottom: 14, background: "rgba(29,158,117,0.15)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(29,158,117,0.3)" }}><div style={{ fontSize: 13, color: "#a0f0d0", fontWeight: 600, marginBottom: 4 }}>✨ Flux automàtic</div><div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{vals.tipusDesti === "nouTransicio" ? "Podràs crear un nou lot de transició (a aquesta o una altra granja)." : vals.tipusDesti === "nouPreengreix" ? "Podràs crear un nou lot de pre-engreix (a aquesta o una altra granja)." : "Podràs crear un nou lot d'engreix (a aquesta o una altra granja)."}</div></div>}
               {vals.tipusDesti === "lot" && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>Lot de destí</label><select value={vals.destiLot || ""} onChange={e => setVals(v => ({ ...v, destiLot: e.target.value }))} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 14, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }}><option value="" style={{ background: "#293548", color: "#fff" }}>— Selecciona —</option>{lotsPerDesti.map(o => <option key={o.value} value={o.value} style={{ background: "#293548", color: "#fff" }}>{o.label}</option>)}</select></div>}
               {(vals.tipusDesti === "escorxador" || vals.tipusDesti === "altre") && <div style={{ marginBottom: 14 }}><label style={{ fontSize: 15, fontWeight: 600, color: "#fff", display: "block", marginBottom: 7 }}>{vals.tipusDesti === "escorxador" ? "Nom escorxador (opcional)" : "Destí (opcional)"}</label><input type="text" value={vals.desti || ""} onChange={e => setVals(v => ({ ...v, desti: e.target.value }))} placeholder={vals.tipusDesti === "escorxador" ? "Ex: Escorxador Girona" : "Ex: Venda directa"} style={{ width: "100%", padding: "13px 12px", border: "1.5px solid var(--modal-border)", borderRadius: 12, fontSize: 15, background: "var(--modal-surface)", color: "#fff", boxSizing: "border-box" }} /></div>}
             </div>
