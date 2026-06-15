@@ -1555,10 +1555,10 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                 {/* Línia de temperatura mitjana (eix dret °C) */}
                 {showTemp && (
                   <g>
-                    <polyline points={tempVals.map((v, i) => v == null ? null : `${tx(i)},${tty(v)}`).filter(Boolean).join(" ")} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
-                    {showDots && tempVals.map((v, i) => v != null && <circle key={`t-${i}`} cx={tx(i)} cy={tty(v)} r="2" fill="#f59e0b" />)}
-                    <text x={CW - padR + 3} y={tty(tMax) + 3} fontSize="8" fill="#f59e0b" textAnchor="start">{Math.round(tMax)}°</text>
-                    <text x={CW - padR + 3} y={tty(tMin) + 3} fontSize="8" fill="#f59e0b" textAnchor="start">{Math.round(tMin)}°</text>
+                    <polyline points={tempVals.map((v, i) => v == null ? null : `${tx(i)},${tty(v)}`).filter(Boolean).join(" ")} fill="none" stroke="#0ea5e9" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
+                    {showDots && tempVals.map((v, i) => v != null && <circle key={`t-${i}`} cx={tx(i)} cy={tty(v)} r="2" fill="#0ea5e9" />)}
+                    <text x={CW - padR + 3} y={tty(tMax) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMax)}°</text>
+                    <text x={CW - padR + 3} y={tty(tMin) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMin)}°</text>
                   </g>
                 )}
                 {/* Eix X labels */}
@@ -1579,9 +1579,9 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                   );
                 })}
                 {tempPresent && (
-                  <button onClick={() => setTempVis(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: tempVis ? "#fff7ed" : "transparent", border: "1px solid " + (tempVis ? "#fed7aa" : "#f1f5f9"), borderRadius: 8, padding: "4px 9px", cursor: "pointer", opacity: tempVis ? 1 : 0.45 }}>
-                    <div style={{ width: 12, height: 0, borderTop: "2px dashed #f59e0b" }} />
-                    <span style={{ fontSize: 10, color: "#92400e", textDecoration: tempVis ? "none" : "line-through" }}>Temp. mitjana (°C)</span>
+                  <button onClick={() => setTempVis(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: tempVis ? "#f0f9ff" : "transparent", border: "1px solid " + (tempVis ? "#bae6fd" : "#f1f5f9"), borderRadius: 8, padding: "4px 9px", cursor: "pointer", opacity: tempVis ? 1 : 0.45 }}>
+                    <div style={{ width: 12, height: 0, borderTop: "2px dashed #0ea5e9" }} />
+                    <span style={{ fontSize: 10, color: "#0369a1", textDecoration: tempVis ? "none" : "line-through" }}>Temp. mitjana (°C)</span>
                   </button>
                 )}
               </div>
