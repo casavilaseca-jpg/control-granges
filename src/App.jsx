@@ -1289,6 +1289,9 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const fasesOrdre = ["transicio", "preengreix", "engreix", "mares"];
   const [escala, setEscala] = useState("1s");
   const [fasesVis, setFasesVis] = useState({ transicio: true, preengreix: true, engreix: true, mares: true });
+  const [tempVis, setTempVis] = useState(true);
+  const [tempByDay, setTempByDay] = useState({}); // { 'YYYY-MM-DD': mitjana °C }
+  const GEO_LAT = 41.765, GEO_LON = 1.519; // La Molsosa (Solsonès)
 
   // Calculs per fase
   const statsPerFase = fasesOrdre.map(f => {
@@ -1341,7 +1344,8 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const visPerFase = weeklyPerFase.filter(d => fasesVis[d.f]);
   const maxVal = Math.max(1, ...visPerFase.flatMap(d => d.vals));
   const CW = 300; const CH = 150;
-  const padL = 26; const padB = 16; const padT = 10; const padR = 6;
+  const padL = 26; const padB = 16; const padT = 10;
+  const padR = tempVis ? 22 : 6;
   const nPts = buckets.length;
   const tx = i => padL + i * (CW - padL - padR) / Math.max(nPts - 1, 1);
   const ty = v => padT + (1 - v / maxVal) * (CH - padT - padB);
@@ -1357,6 +1361,38 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
       ss + l.baixes.filter(b => b.data >= prevStart && b.data < winStart).reduce((sss, b) => sss + b.caps, 0), 0), 0) : 0;
   const trendPct = prevTotal > 0 ? Math.round(((periodeTotal - prevTotal) / prevTotal) * 100) : null;
   const showDots = nPts <= 14;
+
+  // Temperatura: descarrega la mitjana diària d'Open-Meteo per al rang visible
+  useEffect(() => {
+    if (!winStart || !winEnd) return;
+    const endExcl = new Date(new Date(winEnd) - 86400000).toISOString().slice(0, 10);
+    const dayDiff = Math.round((new Date(TODAY) - new Date(winStart)) / 86400000);
+    const url = dayDiff <= 92
+      ? `https://api.open-meteo.com/v1/forecast?latitude=${GEO_LAT}&longitude=${GEO_LON}&daily=temperature_2m_mean&past_days=${Math.min(92, Math.max(1, dayDiff))}&forecast_days=1&timezone=Europe%2FMadrid`
+      : `https://archive-api.open-meteo.com/v1/archive?latitude=${GEO_LAT}&longitude=${GEO_LON}&start_date=${winStart}&end_date=${endExcl}&daily=temperature_2m_mean&timezone=Europe%2FMadrid`;
+    let cancelled = false;
+    fetch(url).then(r => r.json()).then(j => {
+      if (cancelled || !j.daily || !j.daily.time) return;
+      const map = {};
+      j.daily.time.forEach((d, i) => { const t = j.daily.temperature_2m_mean[i]; if (t != null) map[d] = t; });
+      setTempByDay(prev => ({ ...prev, ...map }));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [winStart, winEnd]);
+
+  // Temperatura mitjana per bucket (mitjana dels dies dins el rang)
+  const tempVals = buckets.map(({ start, end }) => {
+    const vs = []; let d = new Date(start); const e = new Date(end);
+    while (d < e) { const k = d.toISOString().slice(0, 10); if (tempByDay[k] != null) vs.push(tempByDay[k]); d = new Date(d.getTime() + 86400000); }
+    return vs.length ? vs.reduce((s, v) => s + v, 0) / vs.length : null;
+  });
+  const tVisible = tempVals.filter(v => v != null);
+  const tempPresent = tVisible.length > 0;
+  const showTemp = tempVis && tempPresent;
+  const tMin = tempPresent ? Math.min(...tVisible) : 0;
+  const tMax = tempPresent ? Math.max(...tVisible) : 1;
+  const tRange = (tMax - tMin) || 1;
+  const tty = v => padT + (1 - (v - tMin) / tRange) * (CH - padT - padB);
 
   // Lots en risc (alertes crítiques no descartades)
   const lotsRisc = fasesOrdre.flatMap(f =>
@@ -1516,6 +1552,15 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                     </g>
                   );
                 })}
+                {/* Línia de temperatura mitjana (eix dret °C) */}
+                {showTemp && (
+                  <g>
+                    <polyline points={tempVals.map((v, i) => v == null ? null : `${tx(i)},${tty(v)}`).filter(Boolean).join(" ")} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
+                    {showDots && tempVals.map((v, i) => v != null && <circle key={`t-${i}`} cx={tx(i)} cy={tty(v)} r="2" fill="#f59e0b" />)}
+                    <text x={CW - padR + 3} y={tty(tMax) + 3} fontSize="8" fill="#f59e0b" textAnchor="start">{Math.round(tMax)}°</text>
+                    <text x={CW - padR + 3} y={tty(tMin) + 3} fontSize="8" fill="#f59e0b" textAnchor="start">{Math.round(tMin)}°</text>
+                  </g>
+                )}
                 {/* Eix X labels */}
                 {buckets.map((b, i) => (
                   <text key={i} x={tx(i)} y={CH - 2} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
@@ -1533,8 +1578,14 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                     </button>
                   );
                 })}
+                {tempPresent && (
+                  <button onClick={() => setTempVis(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: tempVis ? "#fff7ed" : "transparent", border: "1px solid " + (tempVis ? "#fed7aa" : "#f1f5f9"), borderRadius: 8, padding: "4px 9px", cursor: "pointer", opacity: tempVis ? 1 : 0.45 }}>
+                    <div style={{ width: 12, height: 0, borderTop: "2px dashed #f59e0b" }} />
+                    <span style={{ fontSize: 10, color: "#92400e", textDecoration: tempVis ? "none" : "line-through" }}>Temp. mitjana (°C)</span>
+                  </button>
+                )}
               </div>
-              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 6 }}>Toca una fase per mostrar-la o amagar-la · la franja clara marca els caps de setmana</div>
+              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 6 }}>Toca una fase o la temperatura per mostrar-la o amagar-la · la franja clara marca els caps de setmana · temperatura de La Molsosa (Open-Meteo)</div>
             </>
           )}
         </div>
