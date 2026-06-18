@@ -63,6 +63,12 @@ function dataIniciLot(l) {
   if (!l.entrades || !l.entrades.length) return "";
   return l.entrades.reduce((m, e) => (e.data < m ? e.data : m), l.entrades[0].data);
 }
+// Pes teòric per porc = pes mig entrada + GMD teòric × dies / 1000; null si falten dades
+function pesTeoricLot(l) {
+  const st = calcStats(l);
+  if (!l.gmdTeoric || !st.pem) return null;
+  return st.pem + l.gmdTeoric * st.die / 1000;
+}
 
 function MiniGraficBaixes({ lot, color }) {
   if (!lot.baixes.length) return null;
@@ -2022,7 +2028,7 @@ function AppInterna() {
         </div>);
       })}
       {granjaId && granja && granja.lots.length > 0 && (() => {
-        const opcions = [["antiguitat", "Antiguitat"], ["mortalitat", "Mortalitat"], ["nom", "Nom"], ["caps", "Caps"]];
+        const opcions = [["antiguitat", "Antiguitat"], ["mortalitat", "Mortalitat"], ["pesteoric", "Pes teòric"], ["nom", "Nom"], ["caps", "Caps"]];
         return (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 12px 10px", alignItems: "center" }}>
             <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Ordena:</span>
@@ -2037,6 +2043,7 @@ function AppInterna() {
         const ac = a.estat === "tancat" ? 1 : 0, bc = b.estat === "tancat" ? 1 : 0;
         if (ac !== bc) return ac - bc; // tancats sempre al final
         if (ordreLots === "mortalitat") return calcStats(b).pct - calcStats(a).pct;
+        if (ordreLots === "pesteoric") { const pa = pesTeoricLot(a), pb = pesTeoricLot(b); if (pa == null && pb == null) return 0; if (pa == null) return 1; if (pb == null) return -1; return pb - pa; }
         if (ordreLots === "nom") return String(a.nom).localeCompare(String(b.nom));
         if (ordreLots === "caps") return calcStats(b).cap - calcStats(a).cap;
         return dataIniciLot(b).localeCompare(dataIniciLot(a)); // antiguitat: més noves primer, més velles al final
