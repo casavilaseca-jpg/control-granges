@@ -1589,8 +1589,9 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                       <polyline points={lineOf("min")} fill="none" stroke="#0ea5e9" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
                       <polyline points={lineOf("mean")} fill="none" stroke="#0ea5e9" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
                       {showDots && tempAgg.map((t, i) => t.mean != null && <circle key={`t-${i}`} cx={tx(i)} cy={tty(t.mean)} r="2" fill="#0ea5e9" />)}
-                      <text x={CW - padR + 3} y={tty(tMax) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMax)}°</text>
-                      <text x={CW - padR + 3} y={tty(tMin) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMin)}°</text>
+                      {[...new Set([0, 0.25, 0.5, 0.75, 1].map(r => Math.round(tMin + r * (tMax - tMin))))].map(val => (
+                        <text key={val} x={CW - padR + 3} y={tty(val) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{val}°</text>
+                      ))}
                     </g>
                   );
                 })()}
