@@ -1290,8 +1290,17 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const [escala, setEscala] = useState("1s");
   const [fasesVis, setFasesVis] = useState({ transicio: true, preengreix: true, engreix: true, mares: true });
   const [tempVis, setTempVis] = useState(true);
-  const [tempByDay, setTempByDay] = useState({}); // { 'YYYY-MM-DD': mitjana °C }
+  const [tempByDay, setTempByDay] = useState({}); // { 'YYYY-MM-DD': { mean, min, max } }
+  const [granjaVis, setGranjaVis] = useState("totes");
   const GEO_LAT = 41.765, GEO_LON = 1.519; // La Molsosa (Solsonès)
+
+  // Agrupa granges pel propietari (primer mot del nom, ignorant "Gr")
+  const grupGranja = nom => {
+    const parts = String(nom || "").trim().split(/\s+/).filter(p => !/^gr\.?$/i.test(p));
+    return (parts[0] || nom || "").trim() || nom;
+  };
+  const grupsGranja = [...new Set(fasesOrdre.flatMap(f => (data[f] || []).map(g => grupGranja(g.nom))))].sort();
+  const granjaOk = g => granjaVis === "totes" || grupGranja(g.nom) === granjaVis;
 
   // Calculs per fase
   const statsPerFase = fasesOrdre.map(f => {
@@ -1334,7 +1343,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
       });
 
   const weeklyPerFase = fasesOrdre.map(f => {
-    const lots = (data[f] || []).flatMap(g => g.lots);
+    const lots = (data[f] || []).filter(granjaOk).flatMap(g => g.lots);
     const vals = buckets.map(({ start, end }) =>
       lots.reduce((s, l) => s + l.baixes.filter(b => b.data >= start && b.data < end).reduce((ss, b) => ss + b.caps, 0), 0)
     );
@@ -1357,7 +1366,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const durMs = (winStart && winEnd) ? (new Date(winEnd) - new Date(winStart)) : 0;
   const prevStart = winStart ? new Date(new Date(winStart) - durMs).toISOString().slice(0, 10) : null;
   const prevTotal = (prevStart && winStart) ? fasesOrdre.filter(f => fasesVis[f]).reduce((s, f) =>
-    s + (data[f] || []).flatMap(g => g.lots).reduce((ss, l) =>
+    s + (data[f] || []).filter(granjaOk).flatMap(g => g.lots).reduce((ss, l) =>
       ss + l.baixes.filter(b => b.data >= prevStart && b.data < winStart).reduce((sss, b) => sss + b.caps, 0), 0), 0) : 0;
   const trendPct = prevTotal > 0 ? Math.round(((periodeTotal - prevTotal) / prevTotal) * 100) : null;
   const showDots = nPts <= 14;
@@ -1367,30 +1376,33 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
     if (!winStart || !winEnd) return;
     const endExcl = new Date(new Date(winEnd) - 86400000).toISOString().slice(0, 10);
     const dayDiff = Math.round((new Date(TODAY) - new Date(winStart)) / 86400000);
+    const daily = "temperature_2m_mean,temperature_2m_min,temperature_2m_max";
     const url = dayDiff <= 92
-      ? `https://api.open-meteo.com/v1/forecast?latitude=${GEO_LAT}&longitude=${GEO_LON}&daily=temperature_2m_mean&past_days=${Math.min(92, Math.max(1, dayDiff))}&forecast_days=1&timezone=Europe%2FMadrid`
-      : `https://archive-api.open-meteo.com/v1/archive?latitude=${GEO_LAT}&longitude=${GEO_LON}&start_date=${winStart}&end_date=${endExcl}&daily=temperature_2m_mean&timezone=Europe%2FMadrid`;
+      ? `https://api.open-meteo.com/v1/forecast?latitude=${GEO_LAT}&longitude=${GEO_LON}&daily=${daily}&past_days=${Math.min(92, Math.max(1, dayDiff))}&forecast_days=1&timezone=Europe%2FMadrid`
+      : `https://archive-api.open-meteo.com/v1/archive?latitude=${GEO_LAT}&longitude=${GEO_LON}&start_date=${winStart}&end_date=${endExcl}&daily=${daily}&timezone=Europe%2FMadrid`;
     let cancelled = false;
     fetch(url).then(r => r.json()).then(j => {
       if (cancelled || !j.daily || !j.daily.time) return;
       const map = {};
-      j.daily.time.forEach((d, i) => { const t = j.daily.temperature_2m_mean[i]; if (t != null) map[d] = t; });
+      j.daily.time.forEach((d, i) => { map[d] = { mean: j.daily.temperature_2m_mean[i], min: j.daily.temperature_2m_min[i], max: j.daily.temperature_2m_max[i] }; });
       setTempByDay(prev => ({ ...prev, ...map }));
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [winStart, winEnd]);
 
-  // Temperatura mitjana per bucket (mitjana dels dies dins el rang)
-  const tempVals = buckets.map(({ start, end }) => {
-    const vs = []; let d = new Date(start); const e = new Date(end);
-    while (d < e) { const k = d.toISOString().slice(0, 10); if (tempByDay[k] != null) vs.push(tempByDay[k]); d = new Date(d.getTime() + 86400000); }
-    return vs.length ? vs.reduce((s, v) => s + v, 0) / vs.length : null;
+  // Temperatura per bucket: mitjana de mean/min/max dels dies dins el rang
+  const avgArr = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+  const tempAgg = buckets.map(({ start, end }) => {
+    const ms = [], mn = [], mx = []; let d = new Date(start); const e = new Date(end);
+    while (d < e) { const t = tempByDay[d.toISOString().slice(0, 10)]; if (t) { if (t.mean != null) ms.push(t.mean); if (t.min != null) mn.push(t.min); if (t.max != null) mx.push(t.max); } d = new Date(d.getTime() + 86400000); }
+    return { mean: avgArr(ms), min: avgArr(mn), max: avgArr(mx) };
   });
-  const tVisible = tempVals.filter(v => v != null);
-  const tempPresent = tVisible.length > 0;
+  const tempVals = tempAgg.map(t => t.mean);
+  const tempPresent = tempVals.some(v => v != null);
   const showTemp = tempVis && tempPresent;
-  const tMin = tempPresent ? Math.min(...tVisible) : 0;
-  const tMax = tempPresent ? Math.max(...tVisible) : 1;
+  const tAll = tempAgg.flatMap(t => [t.min, t.mean, t.max]).filter(v => v != null);
+  const tMin = tAll.length ? Math.min(...tAll) : 0;
+  const tMax = tAll.length ? Math.max(...tAll) : 1;
   const tRange = (tMax - tMin) || 1;
   const tty = v => padT + (1 - (v - tMin) / tRange) * (CH - padT - padB);
 
@@ -1499,6 +1511,18 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
             <span style={{ fontSize: 9, color: "#cbd5e1" }}>{ESCALES_GRAF[0].label}</span>
             <span style={{ fontSize: 9, color: "#cbd5e1" }}>{ESCALES_GRAF[ESCALES_GRAF.length - 1].label}</span>
           </div>
+          {grupsGranja.length > 1 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+              {["totes", ...grupsGranja].map(gr => {
+                const actiu = granjaVis === gr;
+                return (
+                  <button key={gr} onClick={() => setGranjaVis(gr)} style={{ fontSize: 11, fontWeight: actiu ? 700 : 500, color: actiu ? "#3730a3" : "#64748b", background: actiu ? "#eef2ff" : "#f8fafc", border: "1px solid " + (actiu ? "#c7d2fe" : "#e2e8f0"), borderRadius: 16, padding: "4px 12px", cursor: "pointer" }}>
+                    {gr === "totes" ? "Totes les granges" : gr}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div style={{ background: "#fff", borderRadius: 16, padding: "16px 14px 12px", border: "1px solid #e2e8f0", boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}>
           {/* Capçalera amb total del període i tendència */}
@@ -1552,15 +1576,24 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                     </g>
                   );
                 })}
-                {/* Línia de temperatura mitjana (eix dret °C) */}
-                {showTemp && (
-                  <g>
-                    <polyline points={tempVals.map((v, i) => v == null ? null : `${tx(i)},${tty(v)}`).filter(Boolean).join(" ")} fill="none" stroke="#0ea5e9" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
-                    {showDots && tempVals.map((v, i) => v != null && <circle key={`t-${i}`} cx={tx(i)} cy={tty(v)} r="2" fill="#0ea5e9" />)}
-                    <text x={CW - padR + 3} y={tty(tMax) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMax)}°</text>
-                    <text x={CW - padR + 3} y={tty(tMin) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMin)}°</text>
-                  </g>
-                )}
+                {/* Temperatura (eix dret °C): banda mín–màx + línia mitjana */}
+                {showTemp && (() => {
+                  const lineOf = key => tempAgg.map((t, i) => t[key] == null ? null : `${tx(i)},${tty(t[key])}`).filter(Boolean).join(" ");
+                  const maxArr = tempAgg.map((t, i) => t.max == null ? null : [i, t.max]).filter(Boolean);
+                  const minArr = tempAgg.map((t, i) => t.min == null ? null : [i, t.min]).filter(Boolean);
+                  const band = [...maxArr, ...minArr.slice().reverse()].map(([i, v]) => `${tx(i)},${tty(v)}`).join(" ");
+                  return (
+                    <g>
+                      {maxArr.length > 1 && <polygon points={band} fill="#0ea5e9" opacity="0.10" />}
+                      <polyline points={lineOf("max")} fill="none" stroke="#0ea5e9" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
+                      <polyline points={lineOf("min")} fill="none" stroke="#0ea5e9" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
+                      <polyline points={lineOf("mean")} fill="none" stroke="#0ea5e9" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
+                      {showDots && tempAgg.map((t, i) => t.mean != null && <circle key={`t-${i}`} cx={tx(i)} cy={tty(t.mean)} r="2" fill="#0ea5e9" />)}
+                      <text x={CW - padR + 3} y={tty(tMax) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMax)}°</text>
+                      <text x={CW - padR + 3} y={tty(tMin) + 3} fontSize="8" fill="#0ea5e9" textAnchor="start">{Math.round(tMin)}°</text>
+                    </g>
+                  );
+                })()}
                 {/* Eix X labels */}
                 {buckets.map((b, i) => (
                   <text key={i} x={tx(i)} y={CH - 2} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
@@ -1581,11 +1614,11 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                 {tempPresent && (
                   <button onClick={() => setTempVis(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: tempVis ? "#f0f9ff" : "transparent", border: "1px solid " + (tempVis ? "#bae6fd" : "#f1f5f9"), borderRadius: 8, padding: "4px 9px", cursor: "pointer", opacity: tempVis ? 1 : 0.45 }}>
                     <div style={{ width: 12, height: 0, borderTop: "2px dashed #0ea5e9" }} />
-                    <span style={{ fontSize: 10, color: "#0369a1", textDecoration: tempVis ? "none" : "line-through" }}>Temp. mitjana (°C)</span>
+                    <span style={{ fontSize: 10, color: "#0369a1", textDecoration: tempVis ? "none" : "line-through" }}>Temp. mín·mitj·màx (°C)</span>
                   </button>
                 )}
               </div>
-              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 6 }}>Toca una fase o la temperatura per mostrar-la o amagar-la · la franja clara marca els caps de setmana · temperatura de La Molsosa (Open-Meteo)</div>
+              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 6 }}>Toca una fase o la temperatura per mostrar-la o amagar-la · la banda blava és el rang mín–màx · temperatura de La Molsosa (Open-Meteo)</div>
             </>
           )}
         </div>
