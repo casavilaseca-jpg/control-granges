@@ -50,6 +50,19 @@ function heatColor(p) {
   return { bg: "#E24B4A", color: "#fff" };
 }
 const bdg = e => e === "obert" ? { bg: "#e1f5ee", color: "#0f6e56", text: "Obert" } : { bg: "#f1efe8", color: "#5f5e5a", text: "Tancat" };
+// Contorn segons mortalitat: verd (0%) → vermell (>=7%)
+function vorColorMort(pct) {
+  const t = Math.max(0, Math.min(1, (pct || 0) / 7));
+  const r = Math.round(16 + (226 - 16) * t);
+  const g = Math.round(185 + (75 - 185) * t);
+  const b = Math.round(129 + (74 - 129) * t);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+// Data d'inici d'un lot (primera entrada); "" si no en té
+function dataIniciLot(l) {
+  if (!l.entrades || !l.entrades.length) return "";
+  return l.entrades.reduce((m, e) => (e.data < m ? e.data : m), l.entrades[0].data);
+}
 
 function MiniGraficBaixes({ lot, color }) {
   if (!lot.baixes.length) return null;
@@ -1670,6 +1683,7 @@ function AppInterna() {
   const [editantBaixa, setEditantBaixa] = useState(null);
   const [editantSortida, setEditantSortida] = useState(null);
   const [editantTractament, setEditantTractament] = useState(null);
+  const [ordreLots, setOrdreLots] = useState("antiguitat");
 
   useEffect(() => {
     carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
@@ -2007,11 +2021,31 @@ function AppInterna() {
           </div>
         </div>);
       })}
-      {granjaId && granja?.lots.map(l => {
+      {granjaId && granja && granja.lots.length > 0 && (() => {
+        const opcions = [["antiguitat", "Antiguitat"], ["mortalitat", "Mortalitat"], ["nom", "Nom"], ["caps", "Caps"]];
+        return (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 12px 10px", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Ordena:</span>
+            {opcions.map(([k, lbl]) => {
+              const actiu = ordreLots === k;
+              return <button key={k} onClick={() => setOrdreLots(k)} style={{ fontSize: 11, fontWeight: actiu ? 700 : 500, color: actiu ? fc.colorDark : "#64748b", background: actiu ? fc.bgLight : "#f8fafc", border: "1px solid " + (actiu ? fc.color + "55" : "#e2e8f0"), borderRadius: 16, padding: "4px 11px", cursor: "pointer" }}>{lbl}</button>;
+            })}
+          </div>
+        );
+      })()}
+      {granjaId && granja && [...granja.lots].sort((a, b) => {
+        const ac = a.estat === "tancat" ? 1 : 0, bc = b.estat === "tancat" ? 1 : 0;
+        if (ac !== bc) return ac - bc; // tancats sempre al final
+        if (ordreLots === "mortalitat") return calcStats(b).pct - calcStats(a).pct;
+        if (ordreLots === "nom") return String(a.nom).localeCompare(String(b.nom));
+        if (ordreLots === "caps") return calcStats(b).cap - calcStats(a).cap;
+        return dataIniciLot(b).localeCompare(dataIniciLot(a)); // antiguitat: més noves primer, més velles al final
+      }).map(l => {
         const st = calcStats(l); const hc = heatColor(st.pct); const b = bdg(l.estat);
         const als = detectarAlertes(l, granja.nom, fase);
         const crit = als.some(a => a.nivell === "alerta"); const avis = als.some(a => a.nivell === "avis");
-        return (<div key={l.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", border: "1.5px solid " + (crit ? "#F7C1C1" : avis ? "#FAC775" : "transparent") }}>
+        const vor = l.estat === "tancat" ? "#cbd5e1" : vorColorMort(st.pct);
+        return (<div key={l.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", border: "2px solid " + vor }}>
           <div onClick={() => { setLotId(l.id); setTabLot("resum"); }} style={{ cursor: "pointer" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{l.nom}</div>
