@@ -2052,6 +2052,7 @@ function AppInterna() {
         const als = detectarAlertes(l, granja.nom, fase);
         const crit = als.some(a => a.nivell === "alerta"); const avis = als.some(a => a.nivell === "avis");
         const vor = l.estat === "tancat" ? "#cbd5e1" : vorColorMort(st.pct);
+        const pt = pesTeoricLot(l);
         return (<div key={l.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", border: "2px solid " + vor }}>
           <div onClick={() => { setLotId(l.id); setTabLot("resum"); }} style={{ cursor: "pointer" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -2063,7 +2064,7 @@ function AppInterna() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#555", marginBottom: 8 }}><span>🐷 {st.tCE} caps</span><span>📅 {st.die} dies</span><span>📉 {st.tB} baixes</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ background: hc.bg, color: hc.color, borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }}>Mort. {st.pct}%</span><span style={{ fontSize: 13, color: "#888" }}>{st.cap} caps actuals</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><span style={{ background: hc.bg, color: hc.color, borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }}>Mort. {st.pct}%</span>{pt && <span style={{ background: "#fce7f3", color: "#9d174d", borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }} title={`GMD teòric: ${l.gmdTeoric} g/dia`}>⚖️ {pt.toFixed(1)} kg teòric</span>}<span style={{ fontSize: 13, color: "#888" }}>{st.cap} caps actuals</span></div>
             <MiniGraficBaixes lot={l} color={fc.color} />
           </div>
           <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
