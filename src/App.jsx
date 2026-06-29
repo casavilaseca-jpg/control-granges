@@ -793,12 +793,19 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
   const [desantLot, setDesantLot] = useState(false);
   const [desant, setDesant] = useState(false);
   const [mostraPesada, setMostraPesada] = useState(false);
+  const [mode, setMode] = useState("truja"); // "truja" | "rapid"
+  const [qTruges, setQTruges] = useState("");
+  const [qGarrins, setQGarrins] = useState("");
+  const [qNomLot, setQNomLot] = useState("");
+  const [qGranjaDesti, setQGranjaDesti] = useState("");
+  const [qPesMode, setQPesMode] = useState("total"); // "total" | "garri"
+  const [qPes, setQPes] = useState("");
 
   const totalTruges = truges.filter(t => parseInt(t.garrins) > 0).length;
   const totalGarrins = truges.reduce((s, t) => s + (parseInt(t.garrins) || 0), 0);
   const mittana = totalTruges > 0 ? (totalGarrins / totalTruges).toFixed(1) : "—";
 
-  const resetNou = () => { setGranja(""); setDataDes(TODAY); setTruges([{ id: 1, garrins: "" }]); };
+  const resetNou = () => { setGranja(""); setDataDes(TODAY); setTruges([{ id: 1, garrins: "" }]); setQTruges(""); setQGarrins(""); setQNomLot(""); setQGranjaDesti(""); setQPes(""); setQPesMode("total"); };
   const afegirTruja = () => setTruges(v => [...v, { id: Date.now(), garrins: "" }]);
   const updTruja = (id, val) => setTruges(v => v.map(t => t.id !== id ? t : { ...t, garrins: val }));
   const elimTruja = id => setTruges(v => v.length > 1 ? v.filter(t => t.id !== id) : v);
@@ -813,6 +820,29 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
     resetNou();
   };
 
+  const nQT = parseInt(qTruges) || 0;
+  const nQG = parseInt(qGarrins) || 0;
+  const qMitjana = nQT > 0 ? (nQG / nQT).toFixed(1) : "—";
+  const qPesTotal = qPesMode === "garri" ? (parseFloat(qPes) || 0) * nQG : (parseFloat(qPes) || 0);
+  const qVolLot = !!(qNomLot && qGranjaDesti);
+
+  const guardarRapid = async () => {
+    if (!granja) { toast("Indica la granja", "avis"); return; }
+    if (nQT <= 0) { toast("Indica el nombre de truges", "avis"); return; }
+    if (nQG <= 0) { toast("Indica el nombre de garrins", "avis"); return; }
+    // Distribueix els garrins de manera uniforme entre les truges
+    const base = Math.floor(nQG / nQT); let resta = nQG - base * nQT;
+    const garrins = Array.from({ length: nQT }, () => { const extra = resta > 0 ? 1 : 0; if (resta > 0) resta--; return base + extra; });
+    setDesant(true);
+    const id = await onGuardar({ granja, data: dataDes, garrins });
+    if (qVolLot && id) {
+      await onCrearLot({ desmamatsId: id, nomLot: qNomLot, granjaDestiId: qGranjaDesti, totalGarrins: nQG, data: dataDes, pesKg: String(qPesTotal) });
+    }
+    setDesant(false);
+    setVista("llista");
+    resetNou();
+  };
+
   const inp = { width: "100%", padding: "12px", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 15, background: "#fff", color: "#0f172a", boxSizing: "border-box" };
 
   if (vista === "nou") return (
@@ -820,7 +850,7 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
       <div style={{ padding: "12px 16px 8px" }}>
         <button onClick={() => { setVista("llista"); resetNou(); }} style={{ border: "none", background: "transparent", fontSize: 13, color: fc.color, padding: "0 0 6px", cursor: "pointer" }}>← Enrere</button>
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Nova desmamada</div>
-        <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Anota els garrins per cada truja desmamada.</div>
+        <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>{mode === "rapid" ? "Apunta els totals sense entrar truja per truja." : "Anota els garrins per cada truja desmamada."}</div>
       </div>
       <div style={{ padding: "0 16px" }}>
         <div style={{ marginBottom: 14 }}>
@@ -831,6 +861,12 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
           <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja</label>
           <input type="text" value={granja} onChange={e => setGranja(e.target.value)} placeholder="Ex: Granja Can Puig" style={inp} />
         </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 18, background: "#f1f5f9", borderRadius: 12, padding: 4 }}>
+          {[["truja", "Per truja"], ["rapid", "Ràpid"]].map(([k, lbl]) => (
+            <button key={k} onClick={() => setMode(k)} style={{ flex: 1, padding: "9px", border: "none", borderRadius: 9, background: mode === k ? "#fff" : "transparent", color: mode === k ? fc.colorDark : "#64748b", fontSize: 13, fontWeight: mode === k ? 700 : 500, cursor: "pointer", boxShadow: mode === k ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>{lbl}</button>
+          ))}
+        </div>
+        {mode === "truja" && <>
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Truges desmamades</label>
@@ -859,6 +895,52 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
         <button onClick={guardar} disabled={desant} style={{ width: "100%", padding: "15px", background: fc.color, border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", opacity: desant ? 0.6 : 1, marginBottom: 10 }}>
           {desant ? "Guardant..." : "Guardar desmamada"}
         </button>
+        </>}
+        {mode === "rapid" && <>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Núm. truges</label>
+            <input type="number" inputMode="numeric" min="0" value={qTruges} onChange={e => setQTruges(e.target.value)} placeholder="Ex: 24" style={inp} />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Garrins totals</label>
+            <input type="number" inputMode="numeric" min="0" value={qGarrins} onChange={e => setQGarrins(e.target.value)} placeholder="Ex: 280" style={inp} />
+          </div>
+        </div>
+        {nQG > 0 && nQT > 0 && (
+          <div style={{ background: fc.bgLight, border: `1px solid ${fc.color}44`, borderRadius: 14, padding: "14px", marginBottom: 16, textAlign: "center" }}>
+            <span style={{ fontSize: 13, color: fc.colorDark, fontWeight: 600 }}>{nQG} garrins · {nQT} truges · {qMitjana} garrins/truja</span>
+          </div>
+        )}
+        <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 16, marginBottom: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: FASES.transicio.colorDark, marginBottom: 4 }}>{FASES.transicio.emoji} Crear lot de Transició (opcional)</div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>Si omples el nom i la granja, es crearà el lot enllaçat amb aquesta desmamada.</div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Nom del lot</label>
+            <input type="text" value={qNomLot} onChange={e => setQNomLot(e.target.value)} placeholder={"Ex: LT" + dataDes.slice(8,10) + dataDes.slice(5,7) + dataDes.slice(2,4) + "S"} style={inp} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja de destí (Transició)</label>
+            <select value={qGranjaDesti} onChange={e => setQGranjaDesti(e.target.value)} style={inp}>
+              <option value="" style={{ background: "#293548", color: "#fff" }}>— Selecciona una granja —</option>
+              {grangesTransicio.map(g => <option key={g.id} value={g.id} style={{ background: "#293548", color: "#fff" }}>{g.nom}</option>)}
+            </select>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Pes (opcional)</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              {[["total", "Pes total (kg)"], ["garri", "Pes per garri (kg)"]].map(([k, lbl]) => (
+                <button key={k} onClick={() => setQPesMode(k)} style={{ flex: 1, padding: "8px", border: "1.5px solid " + (qPesMode === k ? "#1D9E75" : "#e2e8f0"), borderRadius: 10, background: qPesMode === k ? "rgba(29,158,117,0.08)" : "#fff", color: qPesMode === k ? "#1D9E75" : "#64748b", fontSize: 12, fontWeight: qPesMode === k ? 700 : 500, cursor: "pointer" }}>{lbl}</button>
+              ))}
+            </div>
+            <input type="number" inputMode="decimal" value={qPes} onChange={e => setQPes(e.target.value)} placeholder={qPesMode === "garri" ? "kg per garri" : "kg totals"} style={inp} />
+            {qPes && nQG > 0 && <div style={{ fontSize: 12, color: "#1D9E75", marginTop: 4, fontWeight: 600 }}>{qPesMode === "garri" ? `Pes total: ${qPesTotal.toFixed(1)} kg` : `Pes mig: ${(qPesTotal / nQG).toFixed(1)} kg/garri`}</div>}
+          </div>
+        </div>
+        <button onClick={guardarRapid} disabled={desant} style={{ width: "100%", padding: "15px", background: fc.color, border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", opacity: desant ? 0.6 : 1, marginTop: 12, marginBottom: 10 }}>
+          {desant ? "Guardant..." : qVolLot ? "Guardar desmamada i crear lot" : "Guardar desmamada"}
+        </button>
+        </>}
         <button onClick={() => { setVista("llista"); resetNou(); }} style={{ width: "100%", padding: "13px", background: "transparent", border: "none", fontSize: 15, color: "#888", cursor: "pointer" }}>Cancel·lar</button>
       </div>
     </div>
@@ -1911,10 +1993,11 @@ function AppInterna() {
   };
 
   const handleGuardarDesmamats = async ({ granja, data: dataDes, garrins }) => {
-    const { error } = await supabase.from("desmamats").insert({ granja, data: dataDes, garrins });
-    if (error) { toast("Error en guardar ❌", "alerta"); return; }
+    const { data: rec, error } = await supabase.from("desmamats").insert({ granja, data: dataDes, garrins }).select().single();
+    if (error) { toast("Error en guardar ❌", "alerta"); return null; }
     const newData = await carregarTot(); setData(newData);
     toast("Desmamada guardada ✓");
+    return rec?.id || null;
   };
 
   const handleCrearLotFromDesmamats = async ({ desmamatsId, nomLot, granjaDestiId, totalGarrins, data: dataDes, pesKg }) => {
