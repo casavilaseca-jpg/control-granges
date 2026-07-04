@@ -1822,17 +1822,38 @@ function AppInterna() {
   const esLotReposicio = fase === "mares" && /reposici/i.test(lot?.nom || "");
   const goLot = (gid, lid) => { setGranjaId(gid); setLotId(lid); setTabLot("resum"); setNav("lots"); };
 
+  // Esborra un lot i tots els seus registres dependents (entrades, sortides, baixes, tractaments)
+  const esborraLotComplet = async (id) => {
+    // Desvincula referències que impedirien l'esborrat
+    await supabase.from("desmamats").update({ lot_id: null }).eq("lot_id", id);
+    await supabase.from("lots").update({ parent_lot_id: null }).eq("parent_lot_id", id);
+    // Esborra els fills
+    for (const t of ["entrades", "sortides", "baixes", "tractaments"]) {
+      const { error } = await supabase.from(t).delete().eq("lot_id", id);
+      if (error) return error;
+    }
+    const { error } = await supabase.from("lots").delete().eq("id", id);
+    return error;
+  };
+
   const handleEliminar = async () => {
     if (!confirmarEliminar) return;
     if (confirmarEliminar.tipus === "granja") {
-      await supabase.from("granges").delete().eq("id", confirmarEliminar.id);
+      const g = granges.find(x => x.id === confirmarEliminar.id);
+      for (const l of (g?.lots || [])) {
+        const err = await esborraLotComplet(l.id);
+        if (err) { toast("Error en eliminar el lot " + l.nom + " ❌", "alerta"); return; }
+      }
+      const { error } = await supabase.from("granges").delete().eq("id", confirmarEliminar.id);
+      if (error) { toast("Error en eliminar la granja ❌", "alerta"); return; }
       setGranjaId(null); setLotId(null);
     } else {
-      await supabase.from("lots").delete().eq("id", confirmarEliminar.id);
+      const err = await esborraLotComplet(confirmarEliminar.id);
+      if (err) { toast("Error en eliminar el lot ❌", "alerta"); return; }
       setLotId(null);
     }
     const newData = await carregarTot(); setData(newData);
-    toast("Eliminat correctament"); setConfirmarEliminar(null);
+    toast("Eliminat correctament ✓"); setConfirmarEliminar(null);
   };
 
   const handleEntrada = async vals => {
