@@ -1948,6 +1948,12 @@ function AppInterna() {
     setConfirmTancar(false); toast("Lot tancat");
   };
 
+  const handleReobrirLot = async () => {
+    const { error } = await supabase.from("lots").update({ estat: "obert" }).eq("id", lotId);
+    if (error) { toast("Error en reobrir el lot ❌", "alerta"); return; }
+    toast("Lot reobert ✓");
+  };
+
   const handleEditarLot = async vals => {
     if (!vals.nom) return;
     await supabase.from("lots").update({ nom: vals.nom, gmd_teoric: parseInt(vals.gmdTeoric) || null }).eq("id", lotId);
@@ -2100,6 +2106,12 @@ function AppInterna() {
             <button onClick={() => setModal("baixa")} style={{ padding: "14px", background: "#FFF0F0", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#C0392B", cursor: "pointer" }}>+ Registrar baixa</button>
             <button onClick={() => setModal("tractament")} style={{ padding: "14px", background: "#EEF4FF", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#1A4DB0", cursor: "pointer" }}>+ Registrar tractament</button>
             <button onClick={() => setConfirmTancar(true)} style={{ padding: "13px", background: "transparent", border: "1.5px solid #E24B4A", borderRadius: 14, fontSize: 14, color: "#E24B4A", cursor: "pointer" }}>Tancar lot</button>
+          </div>
+        )}
+        {lot.estat === "tancat" && (
+          <div style={{ padding: "16px 12px" }}>
+            <button onClick={handleReobrirLot} style={{ width: "100%", padding: "14px", background: "rgba(29,158,117,0.08)", border: "1.5px solid #1D9E75", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#1D9E75", cursor: "pointer" }}>🔓 Reobrir lot</button>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8, textAlign: "center" }}>Torna a obrir el lot per afegir moviments (p. ex. una sortida oblidada cap a reposició).</div>
           </div>
         )}
       </div>
