@@ -1966,7 +1966,7 @@ function AppInterna() {
     const caps = parseInt(vals.caps);
     let pesKg = parseFloat(vals.pesKg) || 0;
     if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
-    await supabase.from("entrades").update({ caps, pes_kg: pesKg }).eq("id", editantEntrada.id);
+    await supabase.from("entrades").update({ data: vals.data || editantEntrada.data, caps, pes_kg: pesKg }).eq("id", editantEntrada.id);
     const newData = await carregarTot(); setData(newData);
     toast("Entrada actualitzada ✓"); setModal(null); setEditantEntrada(null);
   };
@@ -2337,7 +2337,7 @@ function AppInterna() {
         onConfirm={handleEditarLot} onCancel={() => setModal(null)} />}
 
       {modal === "editarEntrada" && editantEntrada && <ModalForm title="Editar entrada" confirmLabel="Guardar canvis" confirmColor={fc.color} capsActuals={editantEntrada.caps}
-        fields={[{ key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 6.5" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
+        fields={[{ key: "data", label: "Data", type: "date", default: editantEntrada.data }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantEntrada.caps) }, { key: "pesPorc", label: "Pes/porc (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 6.5" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/porc", type: "number", inputMode: "decimal", default: editantEntrada.pesKg > 0 ? String(editantEntrada.pesKg) : "" }]}
         extraContent={(vals, setVals) => {
           const caps = parseInt(vals.caps) || 0;
           const pp = parseFloat(vals.pesPorc) || 0;
