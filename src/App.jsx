@@ -226,8 +226,10 @@ function csvToSeccions(lines) {
   return seccions;
 }
 function buildCsv(data, filtres) {
-  const { fases, estat, tipusRegistre } = filtres;
+  const { fases, estat, tipusRegistre, dataIni, dataFi } = filtres;
   const ok = l => estat === "tots" || (estat === "obert" && l.estat === "obert") || (estat === "tancat" && l.estat === "tancat");
+  const dins = d => (!dataIni || (d && d >= dataIni)) && (!dataFi || (d && d <= dataFi));
+  const lotEnRang = l => (!dataIni && !dataFi) || [...l.entrades, ...l.sortides, ...l.baixes, ...(l.tractaments || [])].some(x => dins(x.data));
   const lines = [];
   // Ordena per data, de la més recent a la més antiga (les sense data, al final)
   const ordenarDesc = arr => arr.sort((a, b) => (b.d || "").localeCompare(a.d || "")).map(x => x.r);
@@ -235,7 +237,7 @@ function buildCsv(data, filtres) {
     lines.push("=== RESUM DE LOTS ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data inici", "Dies", "Caps entrada", "Caps actuals", "Caps sortits", "Baixes", "% Mortalitat", "Pes entrada mig", "Pes sortida mig", "Guany/cap", "GMD"]));
     const rows = [];
-    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => {
+    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).filter(lotEnRang).forEach(l => {
       const st = calcStats(l);
       const d0 = l.entrades.length > 0 ? l.entrades.reduce((m, e) => e.data < m ? e.data : m, l.entrades[0].data) : "";
       rows.push({ d: d0, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", d0, st.die, st.tCE, st.cap, st.tCS, st.tB, st.pct + "%", st.pem, st.psm ?? "", st.gKg ?? "", st.gmd ?? ""]) });
@@ -247,7 +249,7 @@ function buildCsv(data, filtres) {
     lines.push("=== ENTRADES ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Pes total (kg)", "Pes mig (kg/cap)", "Origen"]));
     const rows = [];
-    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.entrades.forEach(e => rows.push({ d: e.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", e.data, e.caps, e.pesKg, (e.pesKg / e.caps).toFixed(2), e.origen]) })))));
+    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.entrades.filter(e => dins(e.data)).forEach(e => rows.push({ d: e.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", e.data, e.caps, e.pesKg, (e.pesKg / e.caps).toFixed(2), e.origen]) })))));
     ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
@@ -255,7 +257,7 @@ function buildCsv(data, filtres) {
     lines.push("=== SORTIDES ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Pes total (kg)", "Pes mig (kg/cap)", "Tipus destí", "Destí"]));
     const rows = [];
-    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.sortides.forEach(s => rows.push({ d: s.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", s.data, s.caps, s.pesKg, (s.pesKg / s.caps).toFixed(2), s.tipusDesti, s.desti]) })))));
+    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => l.sortides.filter(s => dins(s.data)).forEach(s => rows.push({ d: s.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", s.data, s.caps, s.pesKg, (s.pesKg / s.caps).toFixed(2), s.tipusDesti, s.desti]) })))));
     ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
@@ -268,6 +270,7 @@ function buildCsv(data, filtres) {
       // El % acumulat es calcula en ordre cronològic ascendent dins el lot
       [...l.baixes].sort((a, b) => a.data.localeCompare(b.data)).forEach(b => {
         bAcum += b.caps;
+        if (!dins(b.data)) return; // el % acumulat es calcula sobre totes, però només exportem les del rang
         rows.push({ d: b.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", b.data, b.caps, b.causa, tCE > 0 ? ((bAcum / tCE) * 100).toFixed(1) + "%" : ""]) });
       });
     })));
@@ -278,7 +281,7 @@ function buildCsv(data, filtres) {
     lines.push("=== TRACTAMENTS ===");
     lines.push(rowCsv(["Fase", "Granja", "Lot", "Estat", "Data", "Medicament", "Recepta", "Animals tractats", "Caps"]));
     const rows = [];
-    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => (l.tractaments || []).forEach(t => rows.push({ d: t.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", t.data, t.medicament, t.recepta, t.identificacio, t.caps || ""]) })))));
+    fases.forEach(f => data[f].forEach(g => g.lots.filter(ok).forEach(l => (l.tractaments || []).filter(t => dins(t.data)).forEach(t => rows.push({ d: t.data, r: rowCsv([FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", t.data, t.medicament, t.recepta, t.identificacio, t.caps || ""]) })))));
     ordenarDesc(rows).forEach(r => lines.push(r));
     lines.push("");
   }
@@ -296,16 +299,20 @@ function PantallaExportacio({ data, onLogout }) {
   const [filtEstat, setFiltEstat] = useState("tots");
   const [filtTipus, setFiltTipus] = useState(["resum", "entrades", "sortides", "baixes", "tractaments"]);
   const [preview, setPreview] = useState(false);
+  const [dataIni, setDataIni] = useState("");
+  const [dataFi, setDataFi] = useState("");
   const toggleFase = f => setFiltFases(v => v.includes(f) ? v.filter(x => x !== f) : [...v, f]);
   const toggleTipus = t => setFiltTipus(v => v.includes(t) ? v.filter(x => x !== t) : [...v, t]);
   const ok = l => filtEstat === "tots" || (filtEstat === "obert" && l.estat === "obert") || (filtEstat === "tancat" && l.estat === "tancat");
-  const nLots = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok))).length;
-  const nE = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.entrades))).length;
-  const nS = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.sortides))).length;
-  const nB = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.baixes))).length;
-  const nT = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.tractaments || []))).length;
+  const dins = d => (!dataIni || (d && d >= dataIni)) && (!dataFi || (d && d <= dataFi));
+  const lotEnRang = l => (!dataIni && !dataFi) || [...l.entrades, ...l.sortides, ...l.baixes, ...(l.tractaments || [])].some(x => dins(x.data));
+  const nLots = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).filter(lotEnRang))).length;
+  const nE = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.entrades.filter(e => dins(e.data))))).length;
+  const nS = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.sortides.filter(s => dins(s.data))))).length;
+  const nB = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.baixes.filter(b => dins(b.data))))).length;
+  const nT = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => (l.tractaments || []).filter(t => dins(t.data))))).length;
   const compt = { resum: nLots, entrades: nE, sortides: nS, baixes: nB, tractaments: nT };
-  const csvStr = buildCsv(data, { fases: filtFases, estat: filtEstat, tipusRegistre: filtTipus });
+  const csvStr = buildCsv(data, { fases: filtFases, estat: filtEstat, tipusRegistre: filtTipus, dataIni, dataFi });
   const lines = csvStr.replace(/^﻿/, "").split("\n").filter(l => l.trim());
   const pill = (actiu, color = "#1D9E75") => ({ border: `1.5px solid ${actiu ? color : "#e0e0e0"}`, borderRadius: 20, padding: "7px 14px", background: actiu ? `${color}18` : "transparent", color: actiu ? color : "#888", fontSize: 13, fontWeight: actiu ? 600 : 400, cursor: "pointer" });
   return (
@@ -323,6 +330,23 @@ function PantallaExportacio({ data, onLogout }) {
         <div style={{ display: "flex", gap: 8 }}>
           {[["tots", "Tots"], ["obert", "Oberts"], ["tancat", "Tancats"]].map(([k, lbl]) => <button key={k} onClick={() => setFiltEstat(k)} style={pill(filtEstat === k)}>{lbl}</button>)}
         </div>
+      </div>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em" }}>Rang de dates (opcional)</div>
+          {(dataIni || dataFi) && <button onClick={() => { setDataIni(""); setDataFi(""); }} style={{ border: "none", background: "transparent", color: "#1D9E75", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>Netejar</button>}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 11, color: "#888", display: "block", marginBottom: 4 }}>Des de</label>
+            <input type="date" value={dataIni} max={dataFi || undefined} onChange={e => setDataIni(e.target.value)} style={{ width: "100%", padding: "10px", border: "1.5px solid #e0e0e0", borderRadius: 10, fontSize: 14, boxSizing: "border-box", color: "#0f172a", background: "#fff" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 11, color: "#888", display: "block", marginBottom: 4 }}>Fins a</label>
+            <input type="date" value={dataFi} min={dataIni || undefined} onChange={e => setDataFi(e.target.value)} style={{ width: "100%", padding: "10px", border: "1.5px solid #e0e0e0", borderRadius: 10, fontSize: 14, boxSizing: "border-box", color: "#0f172a", background: "#fff" }} />
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: "#aaa", marginTop: 6 }}>Filtra entrades, sortides, baixes i tractaments per data. Si es deixa buit, s'exporta tot.</div>
       </div>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Tipus de registre</div>
