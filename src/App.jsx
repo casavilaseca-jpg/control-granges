@@ -392,7 +392,7 @@ function PantallaExportacio({ data, onLogout }) {
           })}
         </div>
       )}
-      <button onClick={() => downloadCsv(csvStr, "granges_" + TODAY + ".csv")} disabled={filtFases.length === 0 || filtTipus.length === 0}
+      <button onClick={() => downloadCsv(csvStr, "granges_" + ((dataIni || dataFi) ? ((dataIni || "inici") + "_" + (dataFi || "avui")) : TODAY) + ".csv")} disabled={filtFases.length === 0 || filtTipus.length === 0}
         style={{ width: "100%", padding: "16px", background: filtFases.length > 0 && filtTipus.length > 0 ? "#1D9E75" : "#ccc", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <span style={{ fontSize: 20 }}>⬇️</span> Descarregar CSV
       </button>
