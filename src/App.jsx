@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -225,6 +226,77 @@ function csvToSeccions(lines) {
   });
   return seccions;
 }
+// Construeix les seccions estructurades (header + files de cel·les tipades) segons els filtres
+function buildSeccions(data, filtres) {
+  const { fases, estat, tipusRegistre, dataIni, dataFi } = filtres;
+  const ok = l => estat === "tots" || (estat === "obert" && l.estat === "obert") || (estat === "tancat" && l.estat === "tancat");
+  const dins = d => (!dataIni || (d && d >= dataIni)) && (!dataFi || (d && d <= dataFi));
+  const lotEnRang = l => (!dataIni && !dataFi) || [...l.entrades, ...l.sortides, ...l.baixes, ...(l.tractaments || [])].some(x => dins(x.data));
+  const r2 = n => Math.round(n * 100) / 100;
+  const ordenar = arr => arr.sort((a, b) => (b.d || "").localeCompare(a.d || "")).map(x => x.row);
+  const seccions = [];
+  if (tipusRegistre.includes("resum")) {
+    const rows = [];
+    fases.forEach(f => (data[f] || []).forEach(g => g.lots.filter(ok).filter(lotEnRang).forEach(l => {
+      const st = calcStats(l);
+      const d0 = l.entrades.length > 0 ? l.entrades.reduce((m, e) => e.data < m ? e.data : m, l.entrades[0].data) : "";
+      rows.push({ d: d0, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", d0, st.die, st.tCE, st.cap, st.tCS, st.tB, st.pct, st.pem, st.psm ?? "", st.gKg ?? "", st.gmd ?? ""] });
+    })));
+    seccions.push({ titol: "Resum de lots", header: ["Fase", "Granja", "Lot", "Estat", "Data inici", "Dies", "Caps entrada", "Caps actuals", "Caps sortits", "Baixes", "% Mortalitat", "Pes entrada mig", "Pes sortida mig", "Guany/cap", "GMD"], rows: ordenar(rows) });
+  }
+  if (tipusRegistre.includes("entrades")) {
+    const rows = [];
+    fases.forEach(f => (data[f] || []).forEach(g => g.lots.filter(ok).forEach(l => l.entrades.filter(e => dins(e.data)).forEach(e => rows.push({ d: e.data, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", e.data, e.caps, e.pesKg, e.caps ? r2(e.pesKg / e.caps) : "", e.origen || ""] })))));
+    seccions.push({ titol: "Entrades", header: ["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Pes total (kg)", "Pes mig (kg/cap)", "Origen"], rows: ordenar(rows) });
+  }
+  if (tipusRegistre.includes("sortides")) {
+    const rows = [];
+    fases.forEach(f => (data[f] || []).forEach(g => g.lots.filter(ok).forEach(l => l.sortides.filter(s => dins(s.data)).forEach(s => rows.push({ d: s.data, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", s.data, s.caps, s.pesKg, s.caps ? r2(s.pesKg / s.caps) : "", s.tipusDesti || "", s.desti || ""] })))));
+    seccions.push({ titol: "Sortides", header: ["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Pes total (kg)", "Pes mig (kg/cap)", "Tipus destí", "Destí"], rows: ordenar(rows) });
+  }
+  if (tipusRegistre.includes("baixes")) {
+    const rows = [];
+    fases.forEach(f => (data[f] || []).forEach(g => g.lots.filter(ok).forEach(l => {
+      const tCE = l.entrades.reduce((s, e) => s + e.caps, 0); let bAcum = 0;
+      [...l.baixes].sort((a, b) => a.data.localeCompare(b.data)).forEach(b => {
+        bAcum += b.caps;
+        if (!dins(b.data)) return; // el % acumulat es calcula sobre totes, però només exportem les del rang
+        rows.push({ d: b.data, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", b.data, b.caps, b.causa || "", tCE > 0 ? r2((bAcum / tCE) * 100) : ""] });
+      });
+    })));
+    seccions.push({ titol: "Baixes", header: ["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Causa", "% Mort acumulada"], rows: ordenar(rows) });
+  }
+  if (tipusRegistre.includes("tractaments")) {
+    const rows = [];
+    fases.forEach(f => (data[f] || []).forEach(g => g.lots.filter(ok).forEach(l => (l.tractaments || []).filter(t => dins(t.data)).forEach(t => rows.push({ d: t.data, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", t.data, t.medicament || "", t.recepta || "", t.identificacio || "", t.caps || ""] })))));
+    seccions.push({ titol: "Tractaments", header: ["Fase", "Granja", "Lot", "Estat", "Data", "Medicament", "Recepta", "Animals tractats", "Caps"], rows: ordenar(rows) });
+  }
+  return seccions;
+}
+// CSV (per a Google Sheets o compatibilitat), amb BOM
+function seccionsToCsv(seccions) {
+  const lines = [];
+  seccions.forEach(sec => {
+    lines.push("=== " + sec.titol.toUpperCase() + " ===");
+    lines.push(rowCsv(sec.header));
+    sec.rows.forEach(r => lines.push(rowCsv(r)));
+    lines.push("");
+  });
+  return "﻿" + lines.join("\n");
+}
+// Excel real (.xlsx): un full per secció, amb columnes i números de debò
+function downloadXlsx(seccions, nom) {
+  const wb = XLSX.utils.book_new();
+  const usats = {};
+  (seccions.length ? seccions : [{ titol: "Sense dades", header: ["Sense dades"], rows: [] }]).forEach(sec => {
+    const ws = XLSX.utils.aoa_to_sheet([sec.header, ...sec.rows]);
+    ws["!cols"] = sec.header.map((h, i) => ({ wch: Math.min(40, Math.max(String(h).length + 2, ...sec.rows.map(r => String(r[i] ?? "").length + 2), 8)) }));
+    let name = (sec.titol || "Full").slice(0, 31).replace(/[\\/?*[\]:]/g, " ");
+    if (usats[name]) { name = name.slice(0, 28) + " " + (++usats[name]); } else usats[name] = 1;
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  });
+  XLSX.writeFile(wb, nom);
+}
 function buildCsv(data, filtres) {
   const { fases, estat, tipusRegistre, dataIni, dataFi } = filtres;
   const ok = l => estat === "tots" || (estat === "obert" && l.estat === "obert") || (estat === "tancat" && l.estat === "tancat");
@@ -312,8 +384,7 @@ function PantallaExportacio({ data, onLogout }) {
   const nB = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => l.baixes.filter(b => dins(b.data))))).length;
   const nT = filtFases.flatMap(f => data[f].flatMap(g => g.lots.filter(ok).flatMap(l => (l.tractaments || []).filter(t => dins(t.data))))).length;
   const compt = { resum: nLots, entrades: nE, sortides: nS, baixes: nB, tractaments: nT };
-  const csvStr = buildCsv(data, { fases: filtFases, estat: filtEstat, tipusRegistre: filtTipus, dataIni, dataFi });
-  const lines = csvStr.replace(/^﻿/, "").split("\n").filter(l => l.trim());
+  const seccions = buildSeccions(data, { fases: filtFases, estat: filtEstat, tipusRegistre: filtTipus, dataIni, dataFi });
   const pill = (actiu, color = "#1D9E75") => ({ border: `1.5px solid ${actiu ? color : "#e0e0e0"}`, borderRadius: 20, padding: "7px 14px", background: actiu ? `${color}18` : "transparent", color: actiu ? color : "#888", fontSize: 13, fontWeight: actiu ? 600 : 400, cursor: "pointer" });
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 100px" }}>
@@ -364,7 +435,7 @@ function PantallaExportacio({ data, onLogout }) {
       </button>
       {preview && (
         <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 16 }}>
-          {csvToSeccions(lines).map((sec, si) => {
+          {seccions.map((sec, si) => {
             const visibles = sec.rows.slice(0, 30);
             return (
               <div key={si} style={{ background: "#1e293b", borderRadius: 12, overflow: "hidden" }}>
@@ -386,20 +457,30 @@ function PantallaExportacio({ data, onLogout }) {
                     </tbody>
                   </table>
                 </div>
-                {sec.rows.length > 30 && <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(255,255,255,0.45)" }}>… i {sec.rows.length - 30} registres més (es descarregaran tots al CSV)</div>}
+                {sec.rows.length > 30 && <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(255,255,255,0.45)" }}>… i {sec.rows.length - 30} registres més (es descarregaran tots)</div>}
               </div>
             );
           })}
         </div>
       )}
-      <button onClick={() => downloadCsv(csvStr, "granges_" + ((dataIni || dataFi) ? ((dataIni || "inici") + "_" + (dataFi || "avui")) : TODAY) + ".csv")} disabled={filtFases.length === 0 || filtTipus.length === 0}
-        style={{ width: "100%", padding: "16px", background: filtFases.length > 0 && filtTipus.length > 0 ? "#1D9E75" : "#ccc", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-        <span style={{ fontSize: 20 }}>⬇️</span> Descarregar CSV
-      </button>
+      {(() => {
+        const habilitat = filtFases.length > 0 && filtTipus.length > 0;
+        const nomBase = "granges_" + ((dataIni || dataFi) ? ((dataIni || "inici") + "_" + (dataFi || "avui")) : TODAY);
+        return (<>
+          <button onClick={() => downloadXlsx(seccions, nomBase + ".xlsx")} disabled={!habilitat}
+            style={{ width: "100%", padding: "16px", background: habilitat ? "#1D6F42" : "#ccc", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#fff", cursor: habilitat ? "pointer" : "default", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <span style={{ fontSize: 20 }}>📊</span> Descarregar Excel (.xlsx)
+          </button>
+          <button onClick={() => downloadCsv(seccionsToCsv(seccions), nomBase + ".csv")} disabled={!habilitat}
+            style={{ width: "100%", padding: "13px", background: "transparent", border: "1.5px solid " + (habilitat ? "#1D9E75" : "#ccc"), borderRadius: 14, fontSize: 14, fontWeight: 600, color: habilitat ? "#1D9E75" : "#ccc", cursor: habilitat ? "pointer" : "default", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <span style={{ fontSize: 16 }}>⬇️</span> Descarregar CSV (Google Sheets)
+          </button>
+        </>);
+      })()}
       <div style={{ background: "#EEF4FF", borderRadius: 12, padding: "12px 14px", fontSize: 12, color: "#555", lineHeight: 1.5, marginBottom: 20 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4, color: "#1A4DB0" }}>💡 Com obrir-ho a Excel o Google Sheets</div>
-        <div>1. Toca "Descarregar CSV"</div>
-        <div>2. Obre amb Excel o puja a Google Drive → Sheets</div>
+        <div style={{ fontWeight: 600, marginBottom: 4, color: "#1A4DB0" }}>💡 Com obrir-ho</div>
+        <div><strong>Excel:</strong> toca "Descarregar Excel (.xlsx)" i obre el fitxer — ja surt amb les columnes separades.</div>
+        <div style={{ marginTop: 3 }}><strong>Google Sheets:</strong> pots fer servir el CSV i pujar-lo a Drive.</div>
       </div>
       <button onClick={onLogout} style={{ width: "100%", padding: "14px", background: "transparent", border: "1.5px solid #e2e8f0", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#94a3b8", cursor: "pointer" }}>🔒 Tancar sessió</button>
     </div>
