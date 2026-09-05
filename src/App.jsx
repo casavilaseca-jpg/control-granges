@@ -1286,6 +1286,8 @@ function PantallaSIP({ data, toast }) {
   const desmamatsMes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM);
   const garDes = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).reduce((ss, g) => ss + (g || 0), 0), 0);
   const deslletaments = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).filter(g => g > 0).length, 0);
+  // Pes dels garrins desmamats: prové de les entrades de transició amb origen "Desmamats" dins el mes
+  const desPesKg = (data.transicio || []).flatMap(g => g.lots).flatMap(l => l.entrades).filter(e => e.origen === "Desmamats" && e.data >= start && e.data < nextM).reduce((s, e) => s + (e.pesKg || 0), 0);
   const mrEscorxCaps = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0);
   const mrEscorxKg   = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0);
   // Cens Mares: separem Productives vs Reposició vs No productives per nom de lot
@@ -1319,7 +1321,7 @@ function PantallaSIP({ data, toast }) {
       `"INFORME SIP — ${MESOS[mes-1]} ${any}"`,
       `"","Quantitat","Pes Total (kg)"`,
       '"MARES"',
-      r('Garrins desmamats', n0(garDes),''),
+      r('Garrins desmamats', n0(garDes), n0(desPesKg)),
       r('Garrins nascuts vius', f(m.garNasc),''),
       r('Parts', f(m.parts),''),
       r('Deslletaments (truges destetades)', n0(deslletaments),''),
@@ -1428,7 +1430,7 @@ function PantallaSIP({ data, toast }) {
           <tbody>
             <SecHead t="MARES" />
             <ColHead />
-            <AutoRow  label="Garrins desmamats" q={garDes} />
+            <AutoRow  label="Garrins desmamats" q={garDes} p={desPesKg || null} pm={pesMig(desPesKg, garDes)} />
             <ManualRow label="Garrins nascuts vius" qk="garNasc" />
             <ManualRow label="Parts" qk="parts" />
             <AutoRow   label="Deslletaments (truges destetades)" q={deslletaments} />
