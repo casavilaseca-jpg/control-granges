@@ -1360,6 +1360,9 @@ function PantallaSIP({ data, toast }) {
   const inpStyle = { width: '100%', border: 'none', background: 'transparent', fontSize: 13, textAlign: 'right', color: '#1e293b', padding: '2px 0', outline: 'none', fontFamily: 'inherit' };
   const Inp = ({ k, ph }) => <input type="number" inputMode="decimal" value={manual[k] || ''} onChange={e => setM(k, e.target.value)} placeholder={ph || '0'} style={inpStyle} />;
   const tdA = (v, extra={}) => <td style={{ ...autoC, ...extra }}>{autoVal(v)}</td>;
+  // Valor amb 2 decimals (per a pes mig)
+  const autoVal2 = v => (v && v > 0) ? Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : <span style={{ color: '#cbd5e1' }}>—</span>;
+  const tdA2 = (v, extra={}) => <td style={{ ...autoC, ...extra }}>{autoVal2(v)}</td>;
   const tdM = (k, ph) => <td style={{ padding: '5px 6px 5px 0', textAlign: 'right' }}><Inp k={k} ph={ph} /></td>;
   const tdEmpty = () => <td style={{ padding: '8px 6px', textAlign: 'right', color: '#e2e8f0', fontSize: 11 }}>—</td>;
   const labelTd = (txt, auto) => <td style={{ padding: '9px 10px', fontSize: 12, color: auto ? '#0c4a6e' : '#374151', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1383,7 +1386,7 @@ function PantallaSIP({ data, toast }) {
   const rowBorder = { borderBottom: '1px solid #f1f5f9' };
   const AutoRow = ({ label, q, p, pm }) => (
     <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA(pm) : tdEmpty()}
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA2(pm) : tdEmpty()}
     </tr>
   );
   const ManualRow = ({ label, qk, pk }) => (
@@ -1396,7 +1399,7 @@ function PantallaSIP({ data, toast }) {
   );
   const MixedRow = ({ label, q, p, pm }) => (
     <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA(pm) : tdEmpty()}
+      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA2(pm) : tdEmpty()}
     </tr>
   );
 
