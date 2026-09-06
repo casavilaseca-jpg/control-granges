@@ -1265,22 +1265,30 @@ function PantallaSIP({ data, toast }) {
     baixes:  lots.reduce((s, l) => s + during(l.baixes).reduce((ss, b) => ss + b.caps, 0), 0),
   });
 
-  const tr = calc(lotsOf('transicio'));
-  // Pre-engreix+Engreix tractat com a unitat tancada:
-  // - Entrades: només les que entren al Pre-engreix (des de Transició)
-  // - Sortides: només les que surten cap a escorxador (els moviments Pre→Engreix interns es cancel·len)
-  // - Existències inici/final: suma dels dos blocs
+  // Cada fase és un bloc tancat: NOMÉS es compten els moviments que creuen la frontera de la fase.
+  // Els moviments interns (transició→transició, o pre-engreix↔engreix) NO es tornen a comptar.
+  const trLots = lotsOf('transicio');
   const peAll = [...lotsOf('preengreix'), ...lotsOf('engreix')];
-  const pePre = lotsOf('preengreix');
-  const pe = {
-    inici:   peAll.reduce((s, l) => s + capsAt(l, start), 0),
-    final:   peAll.reduce((s, l) => s + capsAt(l, nextM), 0),
-    entCaps: pePre.reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + e.caps, 0), 0),
-    entKg:   pePre.reduce((s, l) => s + during(l.entrades).reduce((ss, e) => ss + (e.pesKg || 0), 0), 0),
-    sorCaps: peAll.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0),
-    sorKg:   peAll.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0),
-    baixes:  peAll.reduce((s, l) => s + during(l.baixes).reduce((ss, b) => ss + b.caps, 0), 0),
-  };
+  const trLotNoms = new Set(trLots.map(l => l.nom));
+  const f3LotNoms = new Set(peAll.map(l => l.nom));
+  const origenLot = e => (String(e.origen || '').split(' / ')[1] || '').trim();
+  // Entrada que ve de fora de la fase (origen NO és un lot de la mateixa fase)
+  const trEntExtern = e => !trLotNoms.has(origenLot(e));
+  const f3EntExtern = e => !f3LotNoms.has(origenLot(e));
+  // Sortida que va fora de la fase (destí NO és un lot de la mateixa fase)
+  const trSorExtern = s => !(s.tipusDesti === 'nouTransicio' || (s.tipusDesti === 'lot' && /\[Transici/i.test(s.desti || '')));
+  const f3SorExtern = s => !(s.tipusDesti === 'nouPreengreix' || s.tipusDesti === 'nouEngreix' || (s.tipusDesti === 'lot' && /\[(Pre-engreix|Engreix)\]/i.test(s.desti || '')));
+  const blocFlux = (lots, entOk, sorOk) => ({
+    inici:   lots.reduce((s, l) => s + capsAt(l, start), 0),
+    final:   lots.reduce((s, l) => s + capsAt(l, nextM), 0),
+    entCaps: lots.reduce((s, l) => s + during(l.entrades).filter(entOk).reduce((a, e) => a + e.caps, 0), 0),
+    entKg:   lots.reduce((s, l) => s + during(l.entrades).filter(entOk).reduce((a, e) => a + (e.pesKg || 0), 0), 0),
+    sorCaps: lots.reduce((s, l) => s + during(l.sortides).filter(sorOk).reduce((a, x) => a + x.caps, 0), 0),
+    sorKg:   lots.reduce((s, l) => s + during(l.sortides).filter(sorOk).reduce((a, x) => a + (x.pesKg || 0), 0), 0),
+    baixes:  lots.reduce((s, l) => s + during(l.baixes).reduce((a, b) => a + b.caps, 0), 0),
+  });
+  const tr = blocFlux(trLots, trEntExtern, trSorExtern);
+  const pe = blocFlux(peAll, f3EntExtern, f3SorExtern);
   const maresLots = lotsOf('mares');
   const mr = calc(maresLots);
   const desmamatsMes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM);
