@@ -1237,6 +1237,8 @@ function PantallaSIP({ data, toast }) {
   const now = new Date(TODAY);
   const [mes, setMes] = useState(now.getMonth() === 0 ? 12 : now.getMonth());
   const [any, setAny] = useState(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
+  const [obertes, setObertes] = useState({});
+  const toggleFila = id => setObertes(o => ({ ...o, [id]: !o[id] }));
 
   const pad = n => String(n).padStart(2, '0');
   const storageKey = `sip_${any}_${pad(mes)}`;
@@ -1267,8 +1269,9 @@ function PantallaSIP({ data, toast }) {
 
   // Cada fase és un bloc tancat: NOMÉS es compten els moviments que creuen la frontera de la fase.
   // Els moviments interns (transició→transició, o pre-engreix↔engreix) NO es tornen a comptar.
-  const trLots = lotsOf('transicio');
-  const peAll = [...lotsOf('preengreix'), ...lotsOf('engreix')];
+  const ambGranja = f => (data[f] || []).flatMap(g => g.lots.map(l => ({ ...l, _granja: g.nom })));
+  const trLots = ambGranja('transicio');
+  const peAll = [...ambGranja('preengreix'), ...ambGranja('engreix')];
   const trLotNoms = new Set(trLots.map(l => l.nom));
   const f3LotNoms = new Set(peAll.map(l => l.nom));
   const origenLot = e => (String(e.origen || '').split(' / ')[1] || '').trim();
@@ -1278,15 +1281,23 @@ function PantallaSIP({ data, toast }) {
   // Sortida que va fora de la fase (destí NO és un lot de la mateixa fase)
   const trSorExtern = s => !(s.tipusDesti === 'nouTransicio' || (s.tipusDesti === 'lot' && /\[Transici/i.test(s.desti || '')));
   const f3SorExtern = s => !(s.tipusDesti === 'nouPreengreix' || s.tipusDesti === 'nouEngreix' || (s.tipusDesti === 'lot' && /\[(Pre-engreix|Engreix)\]/i.test(s.desti || '')));
-  const blocFlux = (lots, entOk, sorOk) => ({
-    inici:   lots.reduce((s, l) => s + capsAt(l, start), 0),
-    final:   lots.reduce((s, l) => s + capsAt(l, nextM), 0),
-    entCaps: lots.reduce((s, l) => s + during(l.entrades).filter(entOk).reduce((a, e) => a + e.caps, 0), 0),
-    entKg:   lots.reduce((s, l) => s + during(l.entrades).filter(entOk).reduce((a, e) => a + (e.pesKg || 0), 0), 0),
-    sorCaps: lots.reduce((s, l) => s + during(l.sortides).filter(sorOk).reduce((a, x) => a + x.caps, 0), 0),
-    sorKg:   lots.reduce((s, l) => s + during(l.sortides).filter(sorOk).reduce((a, x) => a + (x.pesKg || 0), 0), 0),
-    baixes:  lots.reduce((s, l) => s + during(l.baixes).reduce((a, b) => a + b.caps, 0), 0),
-  });
+  const blocFlux = (lots, entOk, sorOk) => {
+    const ent = [], sor = [], bai = [], iniciL = [], finalL = [];
+    lots.forEach(l => {
+      const ref = (l._granja ? l._granja + " / " : "") + l.nom;
+      during(l.entrades).filter(entOk).forEach(e => ent.push({ ref, data: e.data, caps: e.caps, kg: e.pesKg || 0, nota: e.origen || "" }));
+      during(l.sortides).filter(sorOk).forEach(x => sor.push({ ref, data: x.data, caps: x.caps, kg: x.pesKg || 0, nota: x.desti || "" }));
+      during(l.baixes).forEach(b => bai.push({ ref, data: b.data, caps: b.caps, kg: 0, nota: b.causa || "" }));
+      const ci = capsAt(l, start); if (ci) iniciL.push({ ref, caps: ci, kg: 0, nota: "" });
+      const cf = capsAt(l, nextM); if (cf) finalL.push({ ref, caps: cf, kg: 0, nota: "" });
+    });
+    const sc = arr => arr.reduce((a, x) => a + x.caps, 0);
+    const sk = arr => arr.reduce((a, x) => a + (x.kg || 0), 0);
+    return {
+      inici: sc(iniciL), final: sc(finalL), entCaps: sc(ent), entKg: sk(ent), sorCaps: sc(sor), sorKg: sk(sor), baixes: sc(bai),
+      det: { inici: iniciL, final: finalL, ent, sor, bai },
+    };
+  };
   const tr = blocFlux(trLots, trEntExtern, trSorExtern);
   const pe = blocFlux(peAll, f3EntExtern, f3SorExtern);
   const maresLots = lotsOf('mares');
@@ -1296,6 +1307,7 @@ function PantallaSIP({ data, toast }) {
   const deslletaments = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).filter(g => g > 0).length, 0);
   // Pes dels garrins desmamats: prové de les entrades de transició amb origen "Desmamats" dins el mes
   const desPesKg = (data.transicio || []).flatMap(g => g.lots).flatMap(l => l.entrades).filter(e => e.origen === "Desmamats" && e.data >= start && e.data < nextM).reduce((s, e) => s + (e.pesKg || 0), 0);
+  const desDetall = desmamatsMes.map(d => { const g = Array.isArray(d.garrins) ? d.garrins : []; return { ref: d.granja || "Desmamada", data: d.data, caps: g.reduce((s, x) => s + (x || 0), 0), kg: 0, nota: g.filter(x => x > 0).length + " truges" }; }).filter(x => x.caps > 0);
   const mrEscorxCaps = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0);
   const mrEscorxKg   = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0);
   // Cens Mares: separem Productives vs Reposició vs No productives per nom de lot
@@ -1392,22 +1404,50 @@ function PantallaSIP({ data, toast }) {
     </tr>
   );
   const rowBorder = { borderBottom: '1px solid #f1f5f9' };
-  const AutoRow = ({ label, q, p, pm }) => (
-    <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA2(pm) : tdEmpty()}
+  // Sub-fila amb el desglossament (d'on surten els valors)
+  const DetallSub = ({ det }) => (
+    <tr>
+      <td colSpan={4} style={{ padding: 0, background: '#f8fafc' }}>
+        <div style={{ padding: '4px 12px 8px' }}>
+          {(!det || det.length === 0)
+            ? <div style={{ fontSize: 11, color: '#94a3b8', padding: '4px 0' }}>Sense moviments aquest mes.</div>
+            : [...det].sort((a, b) => (b.data || '').localeCompare(a.data || '')).map((d, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11, color: '#475569', padding: '4px 0', borderBottom: '1px solid #eef2f7' }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{d.ref}</span>
+                  {d.data && <span style={{ color: '#94a3b8' }}> · {d.data}</span>}
+                  {d.nota && <span style={{ color: '#94a3b8' }}> · {d.nota}</span>}
+                </span>
+                <span style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#0c4a6e' }}>{d.caps.toLocaleString()} caps{d.kg ? ' · ' + Math.round(d.kg).toLocaleString() + ' kg' : ''}</span>
+              </div>
+            ))}
+        </div>
+      </td>
     </tr>
   );
+  // Fila automàtica, expansible si es passa un id + detall
+  const AutoRow = ({ label, q, p, pm, id, detall }) => {
+    const exp = !!(id && detall);
+    const open = exp && obertes[id];
+    return (<>
+      <tr onClick={exp ? () => toggleFila(id) : undefined} style={{ ...rowBorder, background: open ? 'rgba(8,145,178,0.10)' : 'rgba(8,145,178,0.04)', cursor: exp ? 'pointer' : 'default' }}>
+        <td style={{ padding: '9px 10px', fontSize: 12, color: '#0c4a6e', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0891b2', flexShrink: 0, display: 'inline-block' }} />
+          {label}
+          {exp && <span style={{ marginLeft: 3, fontSize: 9, color: '#0891b2' }}>{open ? '▾' : '▸'}</span>}
+        </td>
+        {tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA2(pm) : tdEmpty()}
+      </tr>
+      {open && <DetallSub det={detall} />}
+    </>);
+  };
+  const MixedRow = AutoRow;
   const ManualRow = ({ label, qk, pk }) => (
     <tr style={{ ...rowBorder, background: '#fffdf0' }}>
       {labelTd(label, false)}
       <td style={{ padding: '5px 4px 5px 0', textAlign: 'right' }}>{qk ? <Inp k={qk} /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
       <td style={{ padding: '5px 4px 5px 0', textAlign: 'right' }}>{pk ? <Inp k={pk} ph="kg" /> : <span style={{ color: '#e2e8f0', fontSize: 11 }}>—</span>}</td>
       {tdEmpty()}
-    </tr>
-  );
-  const MixedRow = ({ label, q, p, pm }) => (
-    <tr style={{ ...rowBorder, background: 'rgba(8,145,178,0.04)' }}>
-      {labelTd(label, true)}{tdA(q)}{p != null ? tdA(p) : tdEmpty()}{pm != null ? tdA2(pm) : tdEmpty()}
     </tr>
   );
 
@@ -1441,7 +1481,7 @@ function PantallaSIP({ data, toast }) {
           <tbody>
             <SecHead t="MARES" />
             <ColHead />
-            <AutoRow  label="Garrins desmamats" q={garDes} p={desPesKg || null} pm={pesMig(desPesKg, garDes)} />
+            <AutoRow  label="Garrins desmamats" q={garDes} p={desPesKg || null} pm={pesMig(desPesKg, garDes)} id="mr-des" detall={desDetall} />
             <ManualRow label="Garrins nascuts vius" qk="garNasc" />
             <ManualRow label="Parts" qk="parts" />
             <AutoRow   label="Deslletaments (truges destetades)" q={deslletaments} />
@@ -1459,19 +1499,19 @@ function PantallaSIP({ data, toast }) {
 
             <SecHead t="TRANSICIÓ" />
             <ColHead />
-            <AutoRow  label="Existències inici de mes" q={tr.inici} />
-            <AutoRow  label="Animals entrats durant el mes" q={tr.entCaps} p={tr.entKg} pm={pesMig(tr.entKg, tr.entCaps)} />
-            <AutoRow  label="Animals sortits durant el mes" q={tr.sorCaps} p={tr.sorKg} pm={pesMig(tr.sorKg, tr.sorCaps)} />
-            <AutoRow  label="Existències finals de mes" q={tr.final} />
-            <AutoRow  label="Baixes durant el mes" q={tr.baixes} />
+            <AutoRow  label="Existències inici de mes" q={tr.inici} id="tr-ini" detall={tr.det.inici} />
+            <AutoRow  label="Animals entrats durant el mes" q={tr.entCaps} p={tr.entKg} pm={pesMig(tr.entKg, tr.entCaps)} id="tr-ent" detall={tr.det.ent} />
+            <AutoRow  label="Animals sortits durant el mes" q={tr.sorCaps} p={tr.sorKg} pm={pesMig(tr.sorKg, tr.sorCaps)} id="tr-sor" detall={tr.det.sor} />
+            <AutoRow  label="Existències finals de mes" q={tr.final} id="tr-fin" detall={tr.det.final} />
+            <AutoRow  label="Baixes durant el mes" q={tr.baixes} id="tr-bai" detall={tr.det.bai} />
 
             <SecHead t="PRE-ENGREIX + ENGREIX" />
             <ColHead />
-            <AutoRow  label="Existències inici de mes" q={pe.inici} />
-            <AutoRow  label="Animals entrats durant el mes" q={pe.entCaps} p={pe.entKg} pm={pesMig(pe.entKg, pe.entCaps)} />
-            <AutoRow  label="Animals sortits durant el mes" q={pe.sorCaps} p={pe.sorKg} pm={pesMig(pe.sorKg, pe.sorCaps)} />
-            <AutoRow  label="Existències finals de mes" q={pe.final} />
-            <AutoRow  label="Baixes durant el mes" q={pe.baixes} />
+            <AutoRow  label="Existències inici de mes" q={pe.inici} id="pe-ini" detall={pe.det.inici} />
+            <AutoRow  label="Animals entrats durant el mes" q={pe.entCaps} p={pe.entKg} pm={pesMig(pe.entKg, pe.entCaps)} id="pe-ent" detall={pe.det.ent} />
+            <AutoRow  label="Animals sortits durant el mes" q={pe.sorCaps} p={pe.sorKg} pm={pesMig(pe.sorKg, pe.sorCaps)} id="pe-sor" detall={pe.det.sor} />
+            <AutoRow  label="Existències finals de mes" q={pe.final} id="pe-fin" detall={pe.det.final} />
+            <AutoRow  label="Baixes durant el mes" q={pe.baixes} id="pe-bai" detall={pe.det.bai} />
           </tbody>
         </table>
       </div>
