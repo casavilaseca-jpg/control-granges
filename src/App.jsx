@@ -1418,7 +1418,7 @@ function PantallaSIP({ data, toast }) {
                   {d.data && <span style={{ color: '#94a3b8' }}> · {d.data}</span>}
                   {d.nota && <span style={{ color: '#94a3b8' }}> · {d.nota}</span>}
                 </span>
-                <span style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#0c4a6e' }}>{d.caps.toLocaleString()} caps{d.kg ? ' · ' + Math.round(d.kg).toLocaleString() + ' kg' : ''}</span>
+                <span style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#0c4a6e' }}>{d.caps.toLocaleString()} caps{d.kg ? ' · ' + Math.round(d.kg).toLocaleString() + ' kg' : ''}{d.kg && d.caps ? <span style={{ color: '#0891b2' }}> · {(d.kg / d.caps).toFixed(2)} kg/cap</span> : ''}</span>
               </div>
             ))}
         </div>
