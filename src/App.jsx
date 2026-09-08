@@ -1269,7 +1269,11 @@ function PantallaSIP({ data, toast }) {
   const [granjaSIP, setGranjaSIP] = useState("totes");
   const grupGranja = nom => { const parts = String(nom || "").trim().split(/\s+/).filter(p => !/^gr\.?$/i.test(p)); return (parts[0] || nom || "").trim() || nom; };
   const gOk = g => granjaSIP === "totes" || grupGranja(g.nom) === granjaSIP;
-  const grupsGranjaSIP = [...new Set(["mares", "transicio", "preengreix", "engreix"].flatMap(f => (data[f] || []).map(g => grupGranja(g.nom))))].sort();
+  // Llista oficial d'explotacions + qualsevol grup deduït de dades existents (perquè res quedi ocult)
+  const grupsGranjaSIP = [...new Set([
+    ...(data.explotacions || []).map(e => e.nom),
+    ...["mares", "transicio", "preengreix", "engreix"].flatMap(f => (data[f] || []).map(g => grupGranja(g.nom))),
+  ])].sort();
 
   const pad = n => String(n).padStart(2, '0');
   const storageKey = `sip_${any}_${pad(mes)}`;
@@ -1601,7 +1605,11 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
     const parts = String(nom || "").trim().split(/\s+/).filter(p => !/^gr\.?$/i.test(p));
     return (parts[0] || nom || "").trim() || nom;
   };
-  const grupsGranja = [...new Set(fasesOrdre.flatMap(f => (data[f] || []).map(g => grupGranja(g.nom))))].sort();
+  // Llista oficial d'explotacions + qualsevol grup deduït de dades existents (perquè res quedi ocult)
+  const grupsGranja = [...new Set([
+    ...(data.explotacions || []).map(e => e.nom),
+    ...fasesOrdre.flatMap(f => (data[f] || []).map(g => grupGranja(g.nom))),
+  ])].sort();
   const granjaOk = g => granjaVis === "totes" || grupGranja(g.nom) === granjaVis;
 
   // Calculs per fase
