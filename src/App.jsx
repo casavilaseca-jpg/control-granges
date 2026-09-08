@@ -964,12 +964,20 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
           <input type="date" value={dataDes} onChange={e => setDataDes(e.target.value)} style={inp} />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja</label>
-          <input type="text" value={granja} onChange={e => setGranja(e.target.value)} placeholder="Ex: Granja Can Puig" style={inp} />
-          {explotacionsMares.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-              {explotacionsMares.map(e => <button key={e.id} onClick={() => setGranja(e.nom)} style={{ padding: "6px 12px", borderRadius: 16, border: "1.5px solid " + (granja === e.nom ? fc.color : "#e2e8f0"), background: granja === e.nom ? fc.bgLight : "#fff", color: granja === e.nom ? fc.colorDark : "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{e.nom}</button>)}
-            </div>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja on es desmama (Fase 1 · Mares)</label>
+          {explotacionsMares.length > 0 ? (
+            <>
+              <select value={granja} onChange={e => setGranja(e.target.value)} style={inp}>
+                <option value="">— Selecciona la granja —</option>
+                {explotacionsMares.map(e => <option key={e.id} value={e.nom}>{e.nom}</option>)}
+              </select>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>Només granges amb Fase 1 (Mares). El destí dels garrins es tria després, en crear el lot de transició.</div>
+            </>
+          ) : (
+            <>
+              <input type="text" value={granja} onChange={e => setGranja(e.target.value)} placeholder="Ex: Granja Can Puig" style={inp} />
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>Consell: configura les teves granges a ⚙️ Configuració i marca-hi la Fase 1 (Mares) perquè aquí només surtin les que poden desmamar.</div>
+            </>
           )}
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 18, background: "#f1f5f9", borderRadius: 12, padding: 4 }}>
