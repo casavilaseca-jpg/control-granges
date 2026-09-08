@@ -169,7 +169,7 @@ function defaultDesti(fase) {
 
 // ── Supabase DB ────────────────────────────────────────────────────────────
 async function carregarTot() {
-  const [{ data: gDB }, { data: lDB }, { data: eDB }, { data: sDB }, { data: bDB }, { data: tDB }, { data: dDB }] = await Promise.all([
+  const [{ data: gDB }, { data: lDB }, { data: eDB }, { data: sDB }, { data: bDB }, { data: tDB }, { data: dDB }, xDB] = await Promise.all([
     supabase.from("granges").select("*"),
     supabase.from("lots").select("*"),
     supabase.from("entrades").select("*"),
@@ -177,8 +177,9 @@ async function carregarTot() {
     supabase.from("baixes").select("*"),
     supabase.from("tractaments").select("*"),
     supabase.from("desmamats").select("*").order("created_at", { ascending: false }),
+    supabase.from("explotacions").select("*").order("nom").then(r => r, () => ({ data: [] })),
   ]);
-  const result = { transicio: [], preengreix: [], engreix: [], mares: [], desmamats: dDB || [] };
+  const result = { transicio: [], preengreix: [], engreix: [], mares: [], desmamats: dDB || [], explotacions: (xDB && xDB.data) || [] };
   for (const g of (gDB || [])) {
     const lots = (lDB || []).filter(l => l.granja_id === g.id).map(l => ({
       id: l.id, nom: l.nom, estat: l.estat, gmdTeoric: l.gmd_teoric || null, parentLotId: l.parent_lot_id || null,
@@ -885,7 +886,7 @@ function PantallaTracabilitat({ data }) {
 }
 
 // ── Desmamats ──────────────────────────────────────────────────────────────
-function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot, toast }) {
+function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot, toast, explotacionsMares = [] }) {
   const fc = FASES.desmamats;
   const [vista, setVista] = useState("llista");
   const [seleccionat, setSeleccionat] = useState(null);
@@ -965,6 +966,11 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Granja</label>
           <input type="text" value={granja} onChange={e => setGranja(e.target.value)} placeholder="Ex: Granja Can Puig" style={inp} />
+          {explotacionsMares.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              {explotacionsMares.map(e => <button key={e.id} onClick={() => setGranja(e.nom)} style={{ padding: "6px 12px", borderRadius: 16, border: "1.5px solid " + (granja === e.nom ? fc.color : "#e2e8f0"), background: granja === e.nom ? fc.bgLight : "#fff", color: granja === e.nom ? fc.colorDark : "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{e.nom}</button>)}
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 18, background: "#f1f5f9", borderRadius: 12, padding: 4 }}>
           {[["truja", "Per truja"], ["rapid", "Ràpid"]].map(([k, lbl]) => (
@@ -1924,6 +1930,74 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   );
 }
 
+// ── Configuració ───────────────────────────────────────────────────────────
+function PantallaConfig({ explotacions, onSave, onDelete }) {
+  const FASES_CFG = [["te_mares", "Mares", "🐗"], ["te_transicio", "Transició", "🐣"], ["te_preengreix", "Pre-engreix", "🐖"], ["te_engreix", "Engreix", "🐷"]];
+  const buida = { nom: "", te_mares: false, te_transicio: false, te_preengreix: false, te_engreix: false };
+  const [edit, setEdit] = useState(null); // objecte en edició (nou o existent)
+  const desar = async () => {
+    if (!edit.nom || !edit.nom.trim()) return;
+    await onSave({ ...edit, nom: edit.nom.trim() });
+    setEdit(null);
+  };
+  const chip = (on) => ({ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1.5px solid " + (on ? "#0891b2" : "#e2e8f0"), background: on ? "rgba(8,145,178,0.08)" : "#fff", color: on ? "#0369a1" : "#64748b", fontSize: 13, fontWeight: on ? 700 : 500, cursor: "pointer" });
+  const inp = { width: "100%", padding: "12px", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 15, background: "#fff", color: "#0f172a", boxSizing: "border-box" };
+  const fasesText = e => FASES_CFG.filter(([k]) => e[k]).map(([, l]) => l).join(" · ") || "Cap fase seleccionada";
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 100px" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Configuració</div>
+      <div style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>Defineix amb quines granges treballes i quines fases té cada una. S'utilitzen per proposar-les en anotar dades i per als filtres.</div>
+
+      {explotacions.map(e => (
+        <div key={e.id} style={{ background: "#fff", borderRadius: 14, padding: "14px", marginBottom: 10, border: "1px solid #e2e8f0", boxShadow: "var(--shadow-sm)" }}>
+          {edit && edit.id === e.id ? (
+            <div>
+              <input type="text" value={edit.nom} onChange={ev => setEdit(v => ({ ...v, nom: ev.target.value }))} placeholder="Nom de la granja" style={{ ...inp, marginBottom: 10 }} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {FASES_CFG.map(([k, l, em]) => <button key={k} onClick={() => setEdit(v => ({ ...v, [k]: !v[k] }))} style={chip(edit[k])}>{em} {l}</button>)}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={desar} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#0891b2", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Desar</button>
+                <button onClick={() => setEdit(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 14, cursor: "pointer" }}>Cancel·lar</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>{e.nom}</div>
+                <div style={{ fontSize: 12, color: "#0891b2" }}>{fasesText(e)}</div>
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button onClick={() => setEdit({ ...e })} style={{ border: "none", background: "transparent", fontSize: 16, cursor: "pointer", padding: "4px 6px" }} title="Editar">✏️</button>
+                <button onClick={() => { if (confirm("Eliminar «" + e.nom + "»?")) onDelete(e.id); }} style={{ border: "none", background: "transparent", fontSize: 16, cursor: "pointer", padding: "4px 6px", color: "#ccc" }} title="Eliminar">🗑️</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {edit && !edit.id ? (
+        <div style={{ background: "#fff", borderRadius: 14, padding: "14px", marginBottom: 10, border: "1.5px solid #0891b2" }}>
+          <input type="text" value={edit.nom} onChange={ev => setEdit(v => ({ ...v, nom: ev.target.value }))} placeholder="Nom de la granja (ex: Vilaseca, Rojas)" style={{ ...inp, marginBottom: 10 }} autoFocus />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            {FASES_CFG.map(([k, l, em]) => <button key={k} onClick={() => setEdit(v => ({ ...v, [k]: !v[k] }))} style={chip(edit[k])}>{em} {l}</button>)}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={desar} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#0891b2", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Crear</button>
+            <button onClick={() => setEdit(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 14, cursor: "pointer" }}>Cancel·lar</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setEdit({ ...buida })} style={{ width: "100%", padding: "14px", background: "#fff", border: "1.5px dashed #0891b2", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#0369a1", cursor: "pointer" }}>+ Afegir granja</button>
+      )}
+
+      {explotacions.length === 0 && !edit && (
+        <div style={{ textAlign: "center", padding: "24px 0", color: "#aaa", fontSize: 13 }}>Encara no has configurat cap granja.</div>
+      )}
+    </div>
+  );
+}
+
 function AppInterna() {
   const [fase, setFase] = useState("engreix");
   const [data, setData] = useState({ transicio: [], preengreix: [], engreix: [], mares: [], desmamats: [] });
@@ -1957,7 +2031,7 @@ function AppInterna() {
   }, [sortidaPendent]);
 
   useEffect(() => {
-    const taules = ["granges", "lots", "entrades", "sortides", "baixes", "tractaments", "desmamats"];
+    const taules = ["granges", "lots", "entrades", "sortides", "baixes", "tractaments", "desmamats", "explotacions"];
     const subs = taules.map(t =>
       supabase.channel("rt_" + t)
         .on("postgres_changes", { event: "*", schema: "public", table: t }, () => {
@@ -2115,6 +2189,22 @@ function AppInterna() {
     if (error) { toast("Error en crear granja ❌", "alerta"); return; }
     const newData = await carregarTot(); setData(newData);
     toast("Granja creada ✓"); setModal(null); setGranjaId(gData.id);
+  };
+
+  const handleGuardarExplotacio = async (exp) => {
+    const payload = { nom: exp.nom, te_mares: !!exp.te_mares, te_transicio: !!exp.te_transicio, te_preengreix: !!exp.te_preengreix, te_engreix: !!exp.te_engreix };
+    const { error } = exp.id
+      ? await supabase.from("explotacions").update(payload).eq("id", exp.id)
+      : await supabase.from("explotacions").insert(payload);
+    if (error) { toast("Error en desar la configuració ❌", "alerta"); return; }
+    const newData = await carregarTot(); setData(newData);
+    toast("Configuració desada ✓");
+  };
+  const handleEliminarExplotacio = async (id) => {
+    const { error } = await supabase.from("explotacions").delete().eq("id", id);
+    if (error) { toast("Error en eliminar ❌", "alerta"); return; }
+    const newData = await carregarTot(); setData(newData);
+    toast("Granja eliminada de la configuració");
   };
 
   const handleTancarLot = async () => {
@@ -2430,6 +2520,12 @@ function AppInterna() {
               {fase === f.key && <span style={{ marginLeft: "auto", color: f.color, fontSize: 18 }}>✓</span>}
             </button>
           ))}
+          <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 4, paddingTop: 4 }}>
+            <button onClick={() => { setNav("config"); setShowFaseMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", border: "none", background: nav === "config" ? "#e0f2fe" : "transparent", borderRadius: 12, cursor: "pointer" }}>
+              <span style={{ fontSize: 28 }}>⚙️</span>
+              <div style={{ textAlign: "left" }}><div style={{ fontWeight: 700, fontSize: 16, color: "#0369a1" }}>Configuració</div><div style={{ fontSize: 12, color: "#888" }}>Granges i fases</div></div>
+            </button>
+          </div>
         </div>
       )}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={() => showFaseMenu && setShowFaseMenu(false)}>
@@ -2437,11 +2533,12 @@ function AppInterna() {
         {nav === "alertes" && <PantallaAlertes data={data} dismissed={dismissed} onDismiss={a => setDismissed(s => new Set([...s, `${a.fase}-${a.granja}-${a.lot}-${a.regla}`]))} onLotClick={a => { const g = (data[a.fase] || []).find(g => g.nom === a.granja); if (g) { setFase(a.fase); setGranjaId(g.id); const l = g.lots.find(l => l.nom === a.lot); if (l) { setLotId(l.id); setTabLot("resum"); setNav("lots"); } } }} />}
         {nav === "global" && <PantallaDashboard data={data} totesAlertes={totesAlertes} dismissed={dismissed} onLotClick={(f, gid, lid) => { setFase(f); if (gid) { setGranjaId(gid); setLotId(lid || null); setTabLot("resum"); } setNav("lots"); }} />}
         {nav === "lots" && !lotId && fase !== "desmamats" && <LlistaLots />}
-        {nav === "lots" && !lotId && fase === "desmamats" && <PantallaDesmamats registres={data.desmamats || []} grangesTransicio={data.transicio || []} onGuardar={handleGuardarDesmamats} onCrearLot={handleCrearLotFromDesmamats} toast={toast} />}
+        {nav === "lots" && !lotId && fase === "desmamats" && <PantallaDesmamats registres={data.desmamats || []} grangesTransicio={data.transicio || []} onGuardar={handleGuardarDesmamats} onCrearLot={handleCrearLotFromDesmamats} toast={toast} explotacionsMares={(data.explotacions || []).filter(e => e.te_mares)} />}
         {nav === "lots" && lotId && fase !== "desmamats" && <LotDetall />}
         {nav === "exportacio" && <PantallaExportacio data={data} onLogout={() => supabase.auth.signOut()} />}
         {nav === "tracabilitat" && <PantallaTracabilitat data={data} />}
         {nav === "sip" && <PantallaSIP data={data} toast={toast} />}
+        {nav === "config" && <PantallaConfig explotacions={data.explotacions || []} onSave={handleGuardarExplotacio} onDelete={handleEliminarExplotacio} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
         {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["notes", "✅", "Tasques"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
@@ -2588,7 +2685,21 @@ function AppInterna() {
         )}
         onConfirm={handleEditarTractament} onCancel={() => { setModal(null); setEditantTractament(null); }} />}
 
-      {modal === "novaGranja" && <ModalForm title="Nova granja" confirmLabel="Crear granja" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom de la granja", type: "text", placeholder: "Ex: Granja Can Puig" }]} onConfirm={handleNovaGranja} onCancel={() => setModal(null)} />}
+      {modal === "novaGranja" && <ModalForm title="Nova granja" confirmLabel="Crear granja" confirmColor={fc.color} fields={[{ key: "nom", label: "Nom de la granja", type: "text", placeholder: "Ex: Granja Can Puig" }]}
+        extraContent={(vals, setVals) => {
+          const camp = "te_" + fase;
+          const suggerides = (data.explotacions || []).filter(e => e[camp]);
+          if (!suggerides.length) return null;
+          return (
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>Granges configurades amb {fc.label}:</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {suggerides.map(e => <button key={e.id} type="button" onClick={() => setVals(v => ({ ...v, nom: e.nom }))} style={{ padding: "8px 14px", borderRadius: 20, border: "1.5px solid " + (vals.nom === e.nom ? fc.color : "var(--modal-border)"), background: vals.nom === e.nom ? fc.color + "22" : "transparent", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>{e.nom}</button>)}
+              </div>
+            </div>
+          );
+        }}
+        onConfirm={handleNovaGranja} onCancel={() => setModal(null)} />}
 
       {sortidaPendent && (() => {
         const fd = sortidaPendent.faseDesti;
