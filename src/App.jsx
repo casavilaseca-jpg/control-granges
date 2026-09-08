@@ -1239,6 +1239,10 @@ function PantallaSIP({ data, toast }) {
   const [any, setAny] = useState(now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
   const [obertes, setObertes] = useState({});
   const toggleFila = id => setObertes(o => ({ ...o, [id]: !o[id] }));
+  const [granjaSIP, setGranjaSIP] = useState("totes");
+  const grupGranja = nom => { const parts = String(nom || "").trim().split(/\s+/).filter(p => !/^gr\.?$/i.test(p)); return (parts[0] || nom || "").trim() || nom; };
+  const gOk = g => granjaSIP === "totes" || grupGranja(g.nom) === granjaSIP;
+  const grupsGranjaSIP = [...new Set(["mares", "transicio", "preengreix", "engreix"].flatMap(f => (data[f] || []).map(g => grupGranja(g.nom))))].sort();
 
   const pad = n => String(n).padStart(2, '0');
   const storageKey = `sip_${any}_${pad(mes)}`;
@@ -1256,7 +1260,8 @@ function PantallaSIP({ data, toast }) {
     const b = lot.baixes.filter(x => x.data < cutoff).reduce((s, x) => s + x.caps, 0);
     return Math.max(0, e - s - b);
   };
-  const lotsOf = f => (data[f] || []).flatMap(g => g.lots);
+  const granjesF = f => (data[f] || []).filter(gOk);
+  const lotsOf = f => granjesF(f).flatMap(g => g.lots);
   const calc = lots => ({
     inici: lots.reduce((s, l) => s + capsAt(l, start), 0),
     final: lots.reduce((s, l) => s + capsAt(l, nextM), 0),
@@ -1269,7 +1274,7 @@ function PantallaSIP({ data, toast }) {
 
   // Cada fase és un bloc tancat: NOMÉS es compten els moviments que creuen la frontera de la fase.
   // Els moviments interns (transició→transició, o pre-engreix↔engreix) NO es tornen a comptar.
-  const ambGranja = f => (data[f] || []).flatMap(g => g.lots.map(l => ({ ...l, _granja: g.nom })));
+  const ambGranja = f => granjesF(f).flatMap(g => g.lots.map(l => ({ ...l, _granja: g.nom })));
   const trLots = ambGranja('transicio');
   const peAll = [...ambGranja('preengreix'), ...ambGranja('engreix')];
   const trLotNoms = new Set(trLots.map(l => l.nom));
@@ -1302,11 +1307,11 @@ function PantallaSIP({ data, toast }) {
   const pe = blocFlux(peAll, f3EntExtern, f3SorExtern);
   const maresLots = lotsOf('mares');
   const mr = calc(maresLots);
-  const desmamatsMes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM);
+  const desmamatsMes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM && (granjaSIP === "totes" || grupGranja(d.granja) === granjaSIP));
   const garDes = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).reduce((ss, g) => ss + (g || 0), 0), 0);
   const deslletaments = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).filter(g => g > 0).length, 0);
   // Pes dels garrins desmamats: prové de les entrades de transició amb origen "Desmamats" dins el mes
-  const desPesKg = (data.transicio || []).flatMap(g => g.lots).flatMap(l => l.entrades).filter(e => e.origen === "Desmamats" && e.data >= start && e.data < nextM).reduce((s, e) => s + (e.pesKg || 0), 0);
+  const desPesKg = granjesF('transicio').flatMap(g => g.lots).flatMap(l => l.entrades).filter(e => e.origen === "Desmamats" && e.data >= start && e.data < nextM).reduce((s, e) => s + (e.pesKg || 0), 0);
   const desDetall = desmamatsMes.map(d => { const g = Array.isArray(d.garrins) ? d.garrins : []; return { ref: d.granja || "Desmamada", data: d.data, caps: g.reduce((s, x) => s + (x || 0), 0), kg: 0, nota: g.filter(x => x > 0).length + " truges" }; }).filter(x => x.caps > 0);
   const mrEscorxCaps = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0);
   const mrEscorxKg   = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0);
@@ -1317,7 +1322,7 @@ function PantallaSIP({ data, toast }) {
   // Futures: només lots de reposició; distingim compra externa vs autorep per l'origen de l'entrada
   // Autorep = l'entrada prové d'una sortida d'un lot propi d'engreix/preengreix (origen = "Granja / Lot")
   const reposicioLots = maresLots.filter(isReposicio);
-  const propiGranjaNames = new Set([...(data['engreix'] || []), ...(data['preengreix'] || [])].map(g => g.nom));
+  const propiGranjaNames = new Set([...granjesF('engreix'), ...granjesF('preengreix')].map(g => g.nom));
   const propiLotNoms     = new Set([...lotsOf('engreix'), ...lotsOf('preengreix')].map(l => l.nom));
   const esAutoRep = e => {
     if (!e.origen) return false;
@@ -1467,6 +1472,17 @@ function PantallaSIP({ data, toast }) {
           {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
+
+      {/* Selector de granja */}
+      {grupsGranjaSIP.length > 1 && (
+        <div style={{ padding: '8px 12px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginRight: 2 }}>Granja:</span>
+          {['totes', ...grupsGranjaSIP].map(gr => {
+            const actiu = granjaSIP === gr;
+            return <button key={gr} onClick={() => setGranjaSIP(gr)} style={{ fontSize: 12, fontWeight: actiu ? 700 : 500, color: actiu ? '#fff' : '#0369a1', background: actiu ? '#0891b2' : '#e0f2fe', border: 'none', borderRadius: 16, padding: '5px 13px', cursor: 'pointer' }}>{gr === 'totes' ? 'Totes' : gr}</button>;
+          })}
+        </div>
+      )}
 
       {/* Llegenda */}
       <div style={{ display: 'flex', gap: 14, padding: '8px 14px', fontSize: 10, color: '#64748b', background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
