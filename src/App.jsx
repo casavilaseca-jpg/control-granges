@@ -2248,8 +2248,12 @@ function AppInterna() {
   };
 
   const handleTancarLot = async () => {
+    if (stats && stats.cap !== 0) {
+      toast("No es pot tancar: queden " + stats.cap + " caps. Ha de ser 0 ❌", "alerta");
+      return;
+    }
     await supabase.from("lots").update({ estat: "tancat" }).eq("id", lotId);
-    setConfirmTancar(false); toast("Lot tancat");
+    setConfirmTancar(false); toast("Lot tancat ✓");
   };
 
   const handleReobrirLot = async () => {
@@ -2782,9 +2786,26 @@ function AppInterna() {
           <div style={{ background: "#1e293b", borderRadius: "20px 20px 0 0", padding: "24px 16px 32px" }}>
             <div style={{ width: 40, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, margin: "0 auto 20px" }} />
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "#fff" }}>Tancar lot?</div>
-            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", marginBottom: 24 }}>Un cop tancat no es podran afegir més registres al lot.</div>
-            <button onClick={handleTancarLot} style={{ width: "100%", padding: "15px", background: "#E24B4A", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>Confirmar tancament</button>
-            <button onClick={() => setConfirmTancar(false)} style={{ width: "100%", padding: "14px", background: "transparent", border: "none", fontSize: 15, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>Cancel·lar</button>
+            {stats && stats.cap !== 0 ? (
+              <>
+                <div style={{ background: "rgba(226,75,74,0.15)", border: "1px solid rgba(226,75,74,0.4)", borderRadius: 12, padding: "14px", marginBottom: 20 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#fca5a5", marginBottom: 6 }}>⚠️ No es pot tancar: queden {stats.cap} caps</div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.5 }}>
+                    {stats.cap > 0
+                      ? "Un lot només es pot tancar quan les existències són 0. Registra la sortida (venda/trasllat) o les baixes d'aquests " + stats.cap + " animals abans de tancar."
+                      : "Hi ha un descquadre de " + stats.cap + " caps (s'han registrat sortides o baixes de més). Revisa i corregeix els moviments abans de tancar."}
+                  </div>
+                </div>
+                <button onClick={() => { setConfirmTancar(false); setModal("sortida"); }} style={{ width: "100%", padding: "14px", background: "#1A4DB0", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>Registrar sortida</button>
+                <button onClick={() => setConfirmTancar(false)} style={{ width: "100%", padding: "14px", background: "transparent", border: "none", fontSize: 15, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>Tornar</button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", marginBottom: 24 }}>Existències a 0 ✓. Un cop tancat no es podran afegir més registres al lot.</div>
+                <button onClick={handleTancarLot} style={{ width: "100%", padding: "15px", background: "#E24B4A", border: "none", borderRadius: 14, fontSize: 16, fontWeight: 600, color: "#fff", cursor: "pointer", marginBottom: 10 }}>Confirmar tancament</button>
+                <button onClick={() => setConfirmTancar(false)} style={{ width: "100%", padding: "14px", background: "transparent", border: "none", fontSize: 15, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>Cancel·lar</button>
+              </>
+            )}
           </div>
         </div>
       )}
