@@ -1349,9 +1349,12 @@ function PantallaSIP({ data, toast }) {
   const desmamatsMes = (data.desmamats || []).filter(d => d.data >= start && d.data < nextM && (granjaSIP === "totes" || grupGranja(d.granja) === granjaSIP));
   const garDes = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).reduce((ss, g) => ss + (g || 0), 0), 0);
   const deslletaments = desmamatsMes.reduce((s, d) => s + (Array.isArray(d.garrins) ? d.garrins : []).filter(g => g > 0).length, 0);
-  // Pes dels garrins desmamats: prové de les entrades de transició amb origen "Desmamats" dins el mes
-  const desPesKg = granjesF('transicio').flatMap(g => g.lots).flatMap(l => l.entrades).filter(e => e.origen === "Desmamats" && e.data >= start && e.data < nextM).reduce((s, e) => s + (e.pesKg || 0), 0);
-  const desDetall = desmamatsMes.map(d => { const g = Array.isArray(d.garrins) ? d.garrins : []; return { ref: d.granja || "Desmamada", data: d.data, caps: g.reduce((s, x) => s + (x || 0), 0), kg: 0, nota: g.filter(x => x > 0).length + " truges" }; }).filter(x => x.caps > 0);
+  // Pes dels garrins desmamats: es lliga a la desmamada pel seu lot enllaçat (no a la granja destí),
+  // perquè el pes segueixi la granja on s'ha desmamat, igual que el nombre de garrins.
+  const totsTrLots = (data.transicio || []).flatMap(g => g.lots);
+  const pesLotDesmamat = lotId => { const l = totsTrLots.find(x => x.id === lotId); return l ? l.entrades.filter(e => e.origen === "Desmamats").reduce((s, e) => s + (e.pesKg || 0), 0) : 0; };
+  const desPesKg = desmamatsMes.reduce((s, d) => s + (d.lot_id ? pesLotDesmamat(d.lot_id) : 0), 0);
+  const desDetall = desmamatsMes.map(d => { const g = Array.isArray(d.garrins) ? d.garrins : []; const caps = g.reduce((s, x) => s + (x || 0), 0); const kg = d.lot_id ? pesLotDesmamat(d.lot_id) : 0; return { ref: d.granja || "Desmamada", data: d.data, caps, kg, nota: g.filter(x => x > 0).length + " truges" }; }).filter(x => x.caps > 0);
   const mrEscorxCaps = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + x.caps, 0), 0);
   const mrEscorxKg   = maresLots.reduce((s, l) => s + during(l.sortides).filter(x => x.tipusDesti === 'escorxador').reduce((ss, x) => ss + (x.pesKg || 0), 0), 0);
   // Cens Mares: separem Productives vs Reposició vs No productives per nom de lot
