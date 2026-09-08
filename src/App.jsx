@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Component } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
 
@@ -1184,6 +1184,27 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
   );
 }
 
+// ── Barrera d'errors: evita la pantalla en blanc i mostra què ha fallat ──────
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error("Error de l'app:", err, info); }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ padding: 20, fontFamily: "sans-serif", maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>⚠️</div>
+          <h3 style={{ margin: "0 0 8px" }}>S'ha produït un error</h3>
+          <div style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>Fes una captura d'aquest missatge i envia-la:</div>
+          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 11, color: "#b00020", background: "#fff1f1", border: "1px solid #f7c1c1", borderRadius: 10, padding: 12 }}>{String((this.state.err && this.state.err.stack) || this.state.err)}</pre>
+          <button onClick={() => location.reload()} style={{ marginTop: 12, width: "100%", padding: 14, background: "#0891b2", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Recarregar</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App() {
   const [logat, setLogat] = useState(null); // null=comprovant, false=no logat, true=logat
@@ -1198,7 +1219,7 @@ export default function App() {
     </div>
   );
   if (!logat) return <PantallaLogin />;
-  return <AppInterna />;
+  return <ErrorBoundary><AppInterna /></ErrorBoundary>;
 }
 
 function ModalEliminar({ item, onConfirm, onCancel }) {
