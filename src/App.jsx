@@ -726,7 +726,7 @@ function PantallaTasques() {
 
 // ── Alertes ────────────────────────────────────────────────────────────────
 function PantallaAlertes({ data, onLotClick, dismissed, onDismiss }) {
-  const totes = Object.entries(data).filter(([f]) => f !== "desmamats").flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
+  const totes = Object.entries(data).filter(([f]) => ["transicio", "preengreix", "engreix", "mares"].includes(f)).flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
   const noves = totes.filter(a => !dismissed.has(`${a.fase}-${a.granja}-${a.lot}-${a.regla}`));
   return (
     <div style={{ padding: "16px 12px", overflowY: "auto", flex: 1 }}>
@@ -2074,7 +2074,7 @@ function AppInterna() {
   const stats = lot ? calcStats(lot) : null;
   const fc = FASES[fase];
 
-  const totesAlertes = Object.entries(data).filter(([f]) => f !== "desmamats").flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
+  const totesAlertes = Object.entries(data).filter(([f]) => ["transicio", "preengreix", "engreix", "mares"].includes(f)).flatMap(([f, gs]) => gs.flatMap(g => g.lots.flatMap(l => detectarAlertes(l, g.nom, f))));
   const novesAlertes = totesAlertes.filter(a => !dismissed.has(`${a.fase}-${a.granja}-${a.lot}-${a.regla}`));
   const nCrit = novesAlertes.filter(a => a.nivell === "alerta").length;
 
