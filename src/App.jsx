@@ -169,7 +169,7 @@ function defaultDesti(fase) {
 
 // ── Supabase DB ────────────────────────────────────────────────────────────
 async function carregarTot() {
-  const [{ data: gDB }, { data: lDB }, { data: eDB }, { data: sDB }, { data: bDB }, { data: tDB }, { data: dDB }, xDB] = await Promise.all([
+  const [{ data: gDB }, { data: lDB }, { data: eDB }, { data: sDB }, { data: bDB }, { data: tDB }, { data: dDB }, xDB, aDB] = await Promise.all([
     supabase.from("granges").select("*"),
     supabase.from("lots").select("*"),
     supabase.from("entrades").select("*"),
@@ -178,8 +178,9 @@ async function carregarTot() {
     supabase.from("tractaments").select("*"),
     supabase.from("desmamats").select("*").order("created_at", { ascending: false }),
     supabase.from("explotacions").select("*").order("nom").then(r => r, () => ({ data: [] })),
+    supabase.from("admins").select("email").then(r => r, () => ({ data: [] })),
   ]);
-  const result = { transicio: [], preengreix: [], engreix: [], mares: [], desmamats: dDB || [], explotacions: (xDB && xDB.data) || [] };
+  const result = { transicio: [], preengreix: [], engreix: [], mares: [], desmamats: dDB || [], explotacions: (xDB && xDB.data) || [], admins: (aDB && aDB.data) || [] };
   for (const g of (gDB || [])) {
     const lots = (lDB || []).filter(l => l.granja_id === g.id).map(l => ({
       id: l.id, nom: l.nom, estat: l.estat, gmdTeoric: l.gmd_teoric || null, parentLotId: l.parent_lot_id || null,
@@ -1971,7 +1972,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
 }
 
 // ── Configuració ───────────────────────────────────────────────────────────
-function PantallaConfig({ explotacions, onSave, onDelete, onCrearUsuari }) {
+function PantallaConfig({ explotacions, onSave, onDelete, onCrearUsuari, esAdmin }) {
   const FASES_CFG = [["te_mares", "Mares", "🐗"], ["te_transicio", "Transició", "🐣"], ["te_preengreix", "Pre-engreix", "🐖"], ["te_engreix", "Engreix", "🐷"]];
   const buida = { nom: "", te_mares: false, te_transicio: false, te_preengreix: false, te_engreix: false };
   const [edit, setEdit] = useState(null); // objecte en edició (nou o existent)
@@ -2045,7 +2046,8 @@ function PantallaConfig({ explotacions, onSave, onDelete, onCrearUsuari }) {
         <div style={{ textAlign: "center", padding: "24px 0", color: "#aaa", fontSize: 13 }}>Encara no has configurat cap granja.</div>
       )}
 
-      {/* Treballadors / Usuaris */}
+      {/* Treballadors / Usuaris — només per a administradors */}
+      {esAdmin && (
       <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Treballadors</div>
         <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Dóna d'alta un usuari perquè pugui entrar a l'app amb el seu correu i contrasenya.</div>
@@ -2061,6 +2063,7 @@ function PantallaConfig({ explotacions, onSave, onDelete, onCrearUsuari }) {
           <button onClick={crearUsuari} disabled={usCreant} style={{ width: "100%", padding: "13px", background: usCreant ? "#94a3b8" : "#0891b2", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, color: "#fff", cursor: usCreant ? "default" : "pointer" }}>{usCreant ? "Creant…" : "Crear usuari"}</button>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -2087,6 +2090,9 @@ function AppInterna() {
   const [editantSortida, setEditantSortida] = useState(null);
   const [editantTractament, setEditantTractament] = useState(null);
   const [ordreLots, setOrdreLots] = useState("antiguitat");
+  const [userEmail, setUserEmail] = useState("");
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setUserEmail((data?.user?.email || "").toLowerCase())).catch(() => {}); }, []);
+  const esAdmin = (data.admins || []).some(a => (a.email || "").toLowerCase() === userEmail && userEmail);
 
   useEffect(() => {
     carregarTot().then(d => { setData(d); setCarregant(false); }).catch(() => setCarregant(false));
@@ -2276,6 +2282,7 @@ function AppInterna() {
 
   // Crea un usuari (treballador) sense alterar la sessió de l'administrador
   const handleCrearUsuari = async ({ email, password }) => {
+    if (!esAdmin) { toast("Només un administrador pot crear usuaris ❌", "alerta"); return false; }
     const correu = (email || "").trim().toLowerCase();
     if (!correu || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correu)) { toast("Correu no vàlid ❌", "alerta"); return false; }
     if (!password || password.length < 6) { toast("La contrasenya ha de tenir almenys 6 caràcters ❌", "alerta"); return false; }
@@ -2625,7 +2632,7 @@ function AppInterna() {
         {nav === "exportacio" && <PantallaExportacio data={data} onLogout={() => supabase.auth.signOut()} />}
         {nav === "tracabilitat" && <PantallaTracabilitat data={data} />}
         {nav === "sip" && <PantallaSIP data={data} toast={toast} />}
-        {nav === "config" && <PantallaConfig explotacions={data.explotacions || []} onSave={handleGuardarExplotacio} onDelete={handleEliminarExplotacio} onCrearUsuari={handleCrearUsuari} />}
+        {nav === "config" && <PantallaConfig explotacions={data.explotacions || []} onSave={handleGuardarExplotacio} onDelete={handleEliminarExplotacio} onCrearUsuari={handleCrearUsuari} esAdmin={esAdmin} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
         {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["notes", "✅", "Tasques"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
