@@ -256,12 +256,18 @@ function buildSeccions(data, filtres) {
   const seccions = [];
   if (tipusRegistre.includes("resum")) {
     const rows = [];
-    fases.forEach(f => (data[f] || []).forEach(g => g.lots.filter(ok).filter(lotEnRang).forEach(l => {
-      const st = calcStats(l);
-      const d0 = l.entrades.length > 0 ? l.entrades.reduce((m, e) => e.data < m ? e.data : m, l.entrades[0].data) : "";
-      rows.push({ d: d0, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", d0, st.die, st.tCE, st.cap, st.tCS, st.tB, st.pct, st.pem, st.psm ?? "", st.gKg ?? "", st.gmd ?? ""] });
-    })));
-    seccions.push({ titol: "Resum de lots", header: ["Fase", "Granja", "Lot", "Estat", "Data inici", "Dies", "Caps entrada", "Caps actuals", "Caps sortits", "Baixes", "% Mortalitat", "Pes entrada mig", "Pes sortida mig", "Guany/cap", "GMD"], rows: ordenar(rows) });
+    fases.forEach(f => {
+      const gmdRef = gmdRefDeFase(data, f);
+      (data[f] || []).forEach(g => g.lots.filter(ok).filter(lotEnRang).forEach(l => {
+        const st = calcStats(l);
+        const d0 = l.entrades.length > 0 ? l.entrades.reduce((m, e) => e.data < m ? e.data : m, l.entrades[0].data) : "";
+        const pe = pesEstimatLot(l, gmdRef);
+        const pEstPorc = pe ? r2(pe.perPorc) : "";
+        const pEstTot = (pe && st.cap > 0) ? Math.round(pe.perPorc * st.cap) : "";
+        rows.push({ d: d0, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", d0, st.die, st.tCE, st.cap, st.tCS, st.tB, st.pct, st.pem, st.psm ?? "", st.gKg ?? "", st.gmd ?? "", pEstPorc, pEstTot] });
+      }));
+    });
+    seccions.push({ titol: "Resum de lots", header: ["Fase", "Granja", "Lot", "Estat", "Data inici", "Dies", "Caps entrada", "Caps actuals", "Caps sortits", "Baixes", "% Mortalitat", "Pes entrada mig", "Pes sortida mig", "Guany/cap", "GMD", "Pes estimat/porc", "Pes estimat total"], rows: ordenar(rows) });
   }
   if (tipusRegistre.includes("entrades")) {
     const rows = [];
@@ -2441,9 +2447,8 @@ function AppInterna() {
         ))}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "0 12px 12px" }}>
           {(() => {
-            const pesMigE = stats.tCE > 0 && stats.tPE > 0 ? stats.tPE / stats.tCE : null;
-            const pesTeoricPorc = lot.gmdTeoric && pesMigE ? parseFloat((pesMigE + lot.gmdTeoric * stats.die / 1000).toFixed(1)) : null;
-            return [{ lbl: "Caps actuals", val: stats.cap, col: "#378ADD" }, { lbl: "% Mortalitat", val: stats.pct + "%", col: hc.color, bg: hc.bg }, { lbl: "Caps entrats", val: stats.tCE, col: "#1D9E75" }, { lbl: "Baixes", val: stats.tB, col: "#E24B4A" }, { lbl: "Caps sortits", val: stats.tCS, col: "#BA7517" }, { lbl: "Dies actius", val: stats.die, col: "#7F77DD" }, ...(pesTeoricPorc ? [{ lbl: "Pes teòric/porc", val: pesTeoricPorc + " kg", col: "#ec4899", title: `GMD teòric: ${lot.gmdTeoric} g/dia` }] : []), ...(stats.gmd ? [{ lbl: "GMD real", val: stats.gmd + "g", col: "#0F6E56" }] : []), ...(stats.gKg ? [{ lbl: "Guany/cap", val: stats.gKg + " kg", col: "#1D9E75" }] : [])];
+            const pe = pesEstimatLot(lot, gmdRefFase);
+            return [{ lbl: "Caps actuals", val: stats.cap, col: "#378ADD" }, { lbl: "% Mortalitat", val: stats.pct + "%", col: hc.color, bg: hc.bg }, { lbl: "Caps entrats", val: stats.tCE, col: "#1D9E75" }, { lbl: "Baixes", val: stats.tB, col: "#E24B4A" }, { lbl: "Caps sortits", val: stats.tCS, col: "#BA7517" }, { lbl: "Dies actius", val: stats.die, col: "#7F77DD" }, ...(pe ? [{ lbl: pe.font === "estimat" ? "Pes estimat/porc" : "Pes teòric/porc", val: "~" + Math.round(pe.perPorc) + " kg", col: "#ec4899", title: `GMD ${pe.font} ${pe.gmd} g/dia · entrada ${stats.pem} kg` }] : []), ...(pe && stats.cap > 0 ? [{ lbl: "Pes estimat total", val: "~" + Math.round(pe.perPorc * stats.cap).toLocaleString() + " kg", col: "#db2777" }] : []), ...(stats.gmd ? [{ lbl: "GMD real", val: stats.gmd + "g", col: "#0F6E56" }] : []), ...(stats.gKg ? [{ lbl: "Guany/cap", val: stats.gKg + " kg", col: "#1D9E75" }] : [])];
           })().map(({ lbl, val, col, bg, title }) => {
             const fosc = col === "#fff";
             return (
