@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, Component } from "react";
 import * as XLSX from "xlsx";
-import { supabase } from "./supabase";
+import { supabase, crearClientAlta } from "./supabase";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -1971,14 +1971,24 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
 }
 
 // ── Configuració ───────────────────────────────────────────────────────────
-function PantallaConfig({ explotacions, onSave, onDelete }) {
+function PantallaConfig({ explotacions, onSave, onDelete, onCrearUsuari }) {
   const FASES_CFG = [["te_mares", "Mares", "🐗"], ["te_transicio", "Transició", "🐣"], ["te_preengreix", "Pre-engreix", "🐖"], ["te_engreix", "Engreix", "🐷"]];
   const buida = { nom: "", te_mares: false, te_transicio: false, te_preengreix: false, te_engreix: false };
   const [edit, setEdit] = useState(null); // objecte en edició (nou o existent)
+  const [usEmail, setUsEmail] = useState("");
+  const [usPwd, setUsPwd] = useState("");
+  const [usMostra, setUsMostra] = useState(false);
+  const [usCreant, setUsCreant] = useState(false);
   const desar = async () => {
     if (!edit.nom || !edit.nom.trim()) return;
     await onSave({ ...edit, nom: edit.nom.trim() });
     setEdit(null);
+  };
+  const crearUsuari = async () => {
+    setUsCreant(true);
+    const ok = await onCrearUsuari({ email: usEmail, password: usPwd });
+    setUsCreant(false);
+    if (ok) { setUsEmail(""); setUsPwd(""); setUsMostra(false); }
   };
   const chip = (on) => ({ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1.5px solid " + (on ? "#0891b2" : "#e2e8f0"), background: on ? "rgba(8,145,178,0.08)" : "#fff", color: on ? "#0369a1" : "#64748b", fontSize: 13, fontWeight: on ? 700 : 500, cursor: "pointer" });
   const inp = { width: "100%", padding: "12px", border: "1.5px solid #e2e8f0", borderRadius: 12, fontSize: 15, background: "#fff", color: "#0f172a", boxSizing: "border-box" };
@@ -2034,6 +2044,23 @@ function PantallaConfig({ explotacions, onSave, onDelete }) {
       {explotacions.length === 0 && !edit && (
         <div style={{ textAlign: "center", padding: "24px 0", color: "#aaa", fontSize: 13 }}>Encara no has configurat cap granja.</div>
       )}
+
+      {/* Treballadors / Usuaris */}
+      <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Treballadors</div>
+        <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Dóna d'alta un usuari perquè pugui entrar a l'app amb el seu correu i contrasenya.</div>
+        <div style={{ background: "#fff", borderRadius: 14, padding: "14px", border: "1px solid #e2e8f0", boxShadow: "var(--shadow-sm)" }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Correu electrònic</label>
+          <input type="email" value={usEmail} onChange={e => setUsEmail(e.target.value)} placeholder="treballador@exemple.com" autoCapitalize="none" autoComplete="off" style={{ ...inp, marginBottom: 12 }} />
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>Contrasenya inicial</label>
+          <div style={{ position: "relative", marginBottom: 6 }}>
+            <input type={usMostra ? "text" : "password"} value={usPwd} onChange={e => setUsPwd(e.target.value)} placeholder="Mínim 6 caràcters" autoComplete="new-password" style={{ ...inp, paddingRight: 44 }} />
+            <button type="button" onClick={() => setUsMostra(v => !v)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", fontSize: 16, cursor: "pointer" }}>{usMostra ? "🙈" : "👁️"}</button>
+          </div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14 }}>El treballador podrà canviar-la després. Tots els usuaris veuen les mateixes dades.</div>
+          <button onClick={crearUsuari} disabled={usCreant} style={{ width: "100%", padding: "13px", background: usCreant ? "#94a3b8" : "#0891b2", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, color: "#fff", cursor: usCreant ? "default" : "pointer" }}>{usCreant ? "Creant…" : "Crear usuari"}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2245,6 +2272,22 @@ function AppInterna() {
     if (error) { toast("Error en eliminar ❌", "alerta"); return; }
     const newData = await carregarTot(); setData(newData);
     toast("Granja eliminada de la configuració");
+  };
+
+  // Crea un usuari (treballador) sense alterar la sessió de l'administrador
+  const handleCrearUsuari = async ({ email, password }) => {
+    const correu = (email || "").trim().toLowerCase();
+    if (!correu || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correu)) { toast("Correu no vàlid ❌", "alerta"); return false; }
+    if (!password || password.length < 6) { toast("La contrasenya ha de tenir almenys 6 caràcters ❌", "alerta"); return false; }
+    const client = crearClientAlta();
+    const { data: res, error } = await client.auth.signUp({ email: correu, password });
+    if (error) { toast("Error: " + error.message, "alerta"); return false; }
+    if (res && res.user && !res.session) {
+      toast("Usuari creat. Cal confirmar el correu abans d'entrar ✓");
+      return true;
+    }
+    toast("Usuari creat ✓ Ja pot entrar");
+    return true;
   };
 
   const handleTancarLot = async () => {
@@ -2582,7 +2625,7 @@ function AppInterna() {
         {nav === "exportacio" && <PantallaExportacio data={data} onLogout={() => supabase.auth.signOut()} />}
         {nav === "tracabilitat" && <PantallaTracabilitat data={data} />}
         {nav === "sip" && <PantallaSIP data={data} toast={toast} />}
-        {nav === "config" && <PantallaConfig explotacions={data.explotacions || []} onSave={handleGuardarExplotacio} onDelete={handleEliminarExplotacio} />}
+        {nav === "config" && <PantallaConfig explotacions={data.explotacions || []} onSave={handleGuardarExplotacio} onDelete={handleEliminarExplotacio} onCrearUsuari={handleCrearUsuari} />}
       </div>
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", zIndex: 100, boxShadow: "0 -4px 16px rgba(0,0,0,0.06)" }}>
         {[["global", "📊", "Inici"], ["lots", "🏠", "Lots"], ["notes", "✅", "Tasques"], ["tracabilitat", "🔗", "Traça"], ["sip", "📋", "SIP"], ["exportacio", "📤", "Exportar"]].map(([k, icon, lbl]) => (
