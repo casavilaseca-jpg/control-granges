@@ -70,6 +70,23 @@ function pesTeoricLot(l) {
   if (!l.gmdTeoric || !st.pem) return null;
   return st.pem + l.gmdTeoric * st.die / 1000;
 }
+// GMD de referència d'una fase: mitjana del GMD REAL dels lots tancats (pesats a entrada i sortida)
+function gmdRefDeFase(data, fase) {
+  const gmds = (data[fase] || []).flatMap(g => g.lots)
+    .filter(l => l.estat === "tancat")
+    .map(l => calcStats(l).gmd)
+    .filter(g => g != null && g > 0);
+  return gmds.length ? Math.round(gmds.reduce((a, b) => a + b, 0) / gmds.length) : null;
+}
+// Pes estimat per porc d'un lot: pes mig entrada + GMD × dies / 1000.
+// GMD: real (si el lot és tancat i té pesos) > teòric del lot > referència de la fase (extrapolat).
+function pesEstimatLot(l, gmdRef) {
+  const st = calcStats(l);
+  if (!st.pem) return null; // sense pes d'entrada no es pot estimar
+  const gmd = (st.gmd && st.gmd > 0) ? st.gmd : (l.gmdTeoric || gmdRef);
+  if (!gmd) return null;
+  return { perPorc: st.pem + gmd * st.die / 1000, gmd, font: (st.gmd && st.gmd > 0) ? "real" : (l.gmdTeoric ? "teòric" : "estimat") };
+}
 
 function MiniGraficBaixes({ lot, color }) {
   if (!lot.baixes.length) return null;
@@ -2121,6 +2138,7 @@ function AppInterna() {
   }, []);
 
   const granges = (fase !== "desmamats" ? data[fase] : []) || [];
+  const gmdRefFase = gmdRefDeFase(data, fase); // GMD mitjà dels lots tancats de la fase (per estimar pesos)
   const granja = granges.find(g => g.id === granjaId);
   const lot = granja?.lots.find(l => l.id === lotId);
   const stats = lot ? calcStats(lot) : null;
@@ -2502,7 +2520,7 @@ function AppInterna() {
         </div>);
       })}
       {granjaId && granja && granja.lots.length > 0 && (() => {
-        const opcions = [["antiguitat", "Antiguitat"], ["mortalitat", "Mortalitat"], ["pesteoric", "Pes teòric"], ["nom", "Nom"], ["caps", "Caps"]];
+        const opcions = [["antiguitat", "Antiguitat"], ["mortalitat", "Mortalitat"], ["pesteoric", "Pes estimat"], ["nom", "Nom"], ["caps", "Caps"]];
         return (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 12px 10px", alignItems: "center" }}>
             <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Ordena:</span>
@@ -2517,7 +2535,7 @@ function AppInterna() {
         const ac = a.estat === "tancat" ? 1 : 0, bc = b.estat === "tancat" ? 1 : 0;
         if (ac !== bc) return ac - bc; // tancats sempre al final
         if (ordreLots === "mortalitat") return calcStats(b).pct - calcStats(a).pct;
-        if (ordreLots === "pesteoric") { const pa = pesTeoricLot(a), pb = pesTeoricLot(b); if (pa == null && pb == null) return 0; if (pa == null) return 1; if (pb == null) return -1; return pb - pa; }
+        if (ordreLots === "pesteoric") { const pa = pesEstimatLot(a, gmdRefFase)?.perPorc ?? null, pb = pesEstimatLot(b, gmdRefFase)?.perPorc ?? null; if (pa == null && pb == null) return 0; if (pa == null) return 1; if (pb == null) return -1; return pb - pa; }
         if (ordreLots === "nom") return String(a.nom).localeCompare(String(b.nom));
         if (ordreLots === "caps") return calcStats(b).cap - calcStats(a).cap;
         return dataIniciLot(b).localeCompare(dataIniciLot(a)); // antiguitat: més noves primer, més velles al final
@@ -2526,7 +2544,7 @@ function AppInterna() {
         const als = detectarAlertes(l, granja.nom, fase);
         const crit = als.some(a => a.nivell === "alerta"); const avis = als.some(a => a.nivell === "avis");
         const vor = l.estat === "tancat" ? "#cbd5e1" : vorColorMort(st.pct);
-        const pt = pesTeoricLot(l);
+        const pe = pesEstimatLot(l, gmdRefFase);
         return (<div key={l.id} style={{ margin: "0 12px 10px", background: "var(--color-background-secondary)", borderRadius: 16, padding: "16px", border: "2px solid " + vor }}>
           <div onClick={() => { setLotId(l.id); setTabLot("resum"); }} style={{ cursor: "pointer" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -2537,8 +2555,18 @@ function AppInterna() {
                 <span style={{ fontSize: 11, background: b.bg, color: b.color, borderRadius: 8, padding: "3px 10px" }}>{b.text}</span>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#555", marginBottom: 8 }}><span>🐷 {st.tCE} caps</span><span>📅 {st.die} dies</span><span>📉 {st.tB} baixes</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><span style={{ background: hc.bg, color: hc.color, borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }}>Mort. {st.pct}%</span>{pt && <span style={{ background: "#fce7f3", color: "#9d174d", borderRadius: 8, padding: "4px 12px", fontWeight: 700, fontSize: 14 }} title={`GMD teòric: ${l.gmdTeoric} g/dia`}>⚖️ {pt.toFixed(1)} kg teòric</span>}<span style={{ fontSize: 13, color: "#888" }}>{st.cap} caps actuals</span></div>
+            <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#94a3b8", marginBottom: 10 }}><span>🐷 {st.tCE} entrats</span><span>📅 {st.die} dies</span><span>📉 {st.tB} baixes</span></div>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{st.cap.toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>caps actuals</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                <span style={{ background: hc.bg, color: hc.color, borderRadius: 8, padding: "3px 11px", fontWeight: 700, fontSize: 13 }}>Mort. {st.pct}%</span>
+                {pe && <span style={{ background: "#fdf2f8", color: "#9d174d", borderRadius: 8, padding: "3px 11px", fontWeight: 700, fontSize: 13 }} title={`GMD ${pe.font} ${pe.gmd} g/dia · pes entrada ${st.pem} kg/cap`}>⚖️ ~{Math.round(pe.perPorc)} kg/cap{st.cap > 0 ? " · " + Math.round(pe.perPorc * st.cap).toLocaleString() + " kg" : ""}</span>}
+              </div>
+            </div>
+            {pe && pe.font === "estimat" && <div style={{ fontSize: 10, color: "#cbd5e1", marginTop: 4 }}>Pes estimat amb el GMD mitjà dels lots tancats d'aquesta fase</div>}
             <MiniGraficBaixes lot={l} color={fc.color} />
           </div>
           <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
