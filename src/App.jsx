@@ -203,7 +203,7 @@ async function carregarTot() {
       id: l.id, nom: l.nom, estat: l.estat, gmdTeoric: l.gmd_teoric || null, parentLotId: l.parent_lot_id || null,
       entrades:    (eDB || []).filter(e => e.lot_id === l.id).map(e => ({ id: e.id, data: e.data, caps: e.caps, pesKg: e.pes_kg, origen: e.origen })),
       sortides:    (sDB || []).filter(s => s.lot_id === l.id).map(s => ({ id: s.id, data: s.data, caps: s.caps, pesKg: s.pes_kg, tipusDesti: s.tipus_desti, desti: s.desti })),
-      baixes:      (bDB || []).filter(b => b.lot_id === l.id).map(b => ({ id: b.id, data: b.data, caps: b.caps, causa: b.causa })),
+      baixes:      (bDB || []).filter(b => b.lot_id === l.id).map(b => ({ id: b.id, data: b.data, caps: b.caps, causa: b.causa, pesKg: b.pes_kg || 0 })),
       tractaments: (tDB || []).filter(t => t.lot_id === l.id).map(t => ({ id: t.id, data: t.data, medicament: t.medicament, recepta: t.recepta, identificacio: t.identificacio, caps: t.caps })),
     }));
     if (result[g.fase]) result[g.fase].push({ id: g.id, nom: g.nom, lots });
@@ -286,10 +286,10 @@ function buildSeccions(data, filtres) {
       [...l.baixes].sort((a, b) => a.data.localeCompare(b.data)).forEach(b => {
         bAcum += b.caps;
         if (!dins(b.data)) return; // el % acumulat es calcula sobre totes, però només exportem les del rang
-        rows.push({ d: b.data, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", b.data, b.caps, b.causa || "", tCE > 0 ? r2((bAcum / tCE) * 100) : ""] });
+        rows.push({ d: b.data, row: [FASES[f].label, g.nom, l.nom, l.estat === "obert" ? "Obert" : "Tancat", b.data, b.caps, b.pesKg || "", (b.pesKg && b.caps) ? r2(b.pesKg / b.caps) : "", b.causa || "", tCE > 0 ? r2((bAcum / tCE) * 100) : ""] });
       });
     })));
-    seccions.push({ titol: "Baixes", header: ["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Causa", "% Mort acumulada"], rows: ordenar(rows) });
+    seccions.push({ titol: "Baixes", header: ["Fase", "Granja", "Lot", "Estat", "Data", "Caps", "Pes total (kg)", "Pes mig (kg/cap)", "Causa", "% Mort acumulada"], rows: ordenar(rows) });
   }
   if (tipusRegistre.includes("tractaments")) {
     const rows = [];
@@ -1355,7 +1355,7 @@ function PantallaSIP({ data, toast }) {
       const ref = (l._granja ? l._granja + " / " : "") + l.nom;
       during(l.entrades).filter(entOk).forEach(e => ent.push({ ref, data: e.data, caps: e.caps, kg: e.pesKg || 0, nota: e.origen || "" }));
       during(l.sortides).filter(sorOk).forEach(x => sor.push({ ref, data: x.data, caps: x.caps, kg: x.pesKg || 0, nota: x.desti || "" }));
-      during(l.baixes).forEach(b => bai.push({ ref, data: b.data, caps: b.caps, kg: 0, nota: b.causa || "" }));
+      during(l.baixes).forEach(b => bai.push({ ref, data: b.data, caps: b.caps, kg: b.pesKg || 0, nota: b.causa || "" }));
       const ci = capsAt(l, start); if (ci) iniciL.push({ ref, caps: ci, kg: 0, nota: "" });
       const cf = capsAt(l, nextM); if (cf) finalL.push({ ref, caps: cf, kg: 0, nota: "" });
     });
@@ -2259,7 +2259,10 @@ function AppInterna() {
 
   const handleBaixa = async vals => {
     if (!vals.data || !vals.caps || parseInt(vals.caps) < 1) return;
-    const { error } = await supabase.from("baixes").insert({ lot_id: lotId, data: vals.data, caps: parseInt(vals.caps), causa: vals.causa || "" });
+    const caps = parseInt(vals.caps);
+    let pesKg = parseFloat(vals.pesKg) || 0;
+    if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
+    const { error } = await supabase.from("baixes").insert({ lot_id: lotId, data: vals.data, caps, causa: vals.causa || "", pes_kg: pesKg || null });
     if (error) { toast("Error en guardar ❌", "alerta"); return; }
     toast("Baixa registrada ✓"); setModal(null);
   };
@@ -2361,7 +2364,10 @@ function AppInterna() {
 
   const handleEditarBaixa = async vals => {
     if (!vals.data || !vals.caps || parseInt(vals.caps) < 1) return;
-    await supabase.from("baixes").update({ data: vals.data, caps: parseInt(vals.caps), causa: vals.causa || "" }).eq("id", editantBaixa.id);
+    const caps = parseInt(vals.caps);
+    let pesKg = parseFloat(vals.pesKg) || 0;
+    if (!pesKg && vals.pesPorc && caps > 0) pesKg = Math.round(parseFloat(vals.pesPorc) * caps * 10) / 10;
+    await supabase.from("baixes").update({ data: vals.data, caps, causa: vals.causa || "", pes_kg: pesKg || null }).eq("id", editantBaixa.id);
     const newData = await carregarTot(); setData(newData);
     toast("Baixa actualitzada ✓"); setModal(null); setEditantBaixa(null);
   };
@@ -2475,7 +2481,7 @@ function AppInterna() {
           )}
           {tabLot === "entrades" && lot.entrades.map((e, i) => (<div key={e.id} style={{ background: "var(--color-background-secondary)", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Entrada {i + 1}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{e.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantEntrada(e); setModal("editarEntrada"); }} style={{ border: "none", background: "transparent", color: "#aaa", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar entrada">✏️</button>}</div></div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{e.caps} caps</div><div style={{ fontSize: 13, color: "#555" }}>{e.pesKg > 0 ? `${e.pesKg.toLocaleString()} kg · ${(e.pesKg / e.caps).toFixed(1)} kg/cap` : <span style={{ color: "#f59e0b" }}>Pes pendent</span>}</div>{e.origen && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>📦 {e.origen}</div>}</div>))}
           {tabLot === "sortides" && (lot.sortides.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense sortides</div> : lot.sortides.map((e, i) => (<div key={e.id} style={{ background: "var(--color-background-secondary)", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Sortida {i + 1}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{e.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantSortida(e); setModal("editarSortida"); }} style={{ border: "none", background: "transparent", color: "#aaa", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar sortida">✏️</button>}</div></div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{e.caps} caps</div><div style={{ fontSize: 13, color: "#555" }}>{e.pesKg.toLocaleString()} kg · {(e.pesKg / e.caps).toFixed(1)} kg/cap</div>{e.desti && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>📍 {e.desti}</div>}</div>)))}
-          {tabLot === "baixes" && (lot.baixes.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense baixes</div> : [...lot.baixes].reverse().map(b => (<div key={b.id} style={{ background: "#FFF5F5", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600, color: "#E24B4A" }}>{b.caps} cap{b.caps > 1 ? "s" : ""}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{b.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantBaixa(b); setModal("editarBaixa"); }} style={{ border: "none", background: "transparent", color: "#bbb", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar baixa">✏️</button>}</div></div>{b.causa && <div style={{ fontSize: 13, color: "#555" }}>Causa: {b.causa}</div>}</div>)))}
+          {tabLot === "baixes" && (lot.baixes.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense baixes</div> : [...lot.baixes].reverse().map(b => (<div key={b.id} style={{ background: "#FFF5F5", borderRadius: 12, padding: "14px", marginBottom: 8 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><span style={{ fontWeight: 600, color: "#E24B4A" }}>{b.caps} cap{b.caps > 1 ? "s" : ""}{b.pesKg > 0 ? " · " + b.pesKg.toLocaleString() + " kg" : ""}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{b.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantBaixa(b); setModal("editarBaixa"); }} style={{ border: "none", background: "transparent", color: "#bbb", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar baixa">✏️</button>}</div></div>{b.pesKg > 0 && b.caps > 0 && <div style={{ fontSize: 12, color: "#888", marginBottom: 2 }}>{(b.pesKg / b.caps).toFixed(1)} kg/animal</div>}{b.causa && <div style={{ fontSize: 13, color: "#555" }}>Causa: {b.causa}</div>}</div>)))}
           {tabLot === "tractaments" && (tracts.length === 0 ? <div style={{ textAlign: "center", padding: "32px 0", color: "#aaa", fontSize: 14 }}>Sense tractaments</div> : [...tracts].reverse().map(t => (<div key={t.id} style={{ background: "#F0F4FF", borderRadius: 12, padding: "14px", marginBottom: 8, border: "1px solid #D0DCFF" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}><span style={{ fontWeight: 700, fontSize: 14, color: "#1A4DB0" }}>💊 {t.medicament}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, color: "#888" }}>{t.data}</span>{lot.estat === "obert" && <button onClick={() => { setEditantTractament(t); setModal("editarTractament"); }} style={{ border: "none", background: "transparent", color: "#aaa", fontSize: 15, cursor: "pointer", padding: "0 2px" }} title="Editar o eliminar tractament">✏️</button>}</div></div>{t.recepta && <div style={{ fontSize: 12, color: "#555", marginBottom: 3 }}>📋 Recepta: <strong>{t.recepta}</strong></div>}<div style={{ fontSize: 12, color: "#555" }}>🐷 {t.identificacio}{t.caps > 0 ? " (" + t.caps + " caps)" : ""}</div></div>)))}
         </div>
         {lot.estat === "obert" && (
@@ -2724,7 +2730,31 @@ function AppInterna() {
         }}
         onConfirm={handleSortida} onCancel={() => setModal(null)} />}
 
-      {modal === "baixa" && <ModalForm title="Registrar baixa" confirmLabel="Confirmar baixa" confirmColor="#C0392B" fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", placeholder: "Quants animals?" }, { key: "causa", label: "Causa (opcional)", type: "text", placeholder: "Ex: Diarrea, Respiratòria..." }]} onConfirm={handleBaixa} onCancel={() => setModal(null)} />}
+      {modal === "baixa" && (() => {
+        const pe = lot ? pesEstimatLot(lot, gmdRefFase) : null;
+        const defPorc = pe ? String(Math.round(pe.perPorc)) : "";
+        return <ModalForm title="Registrar baixa" confirmLabel="Confirmar baixa" confirmColor="#C0392B"
+          fields={[
+            { key: "data", label: "Data", type: "date", default: TODAY },
+            { key: "caps", label: "Caps", type: "number", inputMode: "numeric", placeholder: "Quants animals?" },
+            { key: "pesPorc", label: "Pes/animal (kg)" + (pe ? " — estimat, editable" : ""), type: "number", inputMode: "decimal", default: defPorc, placeholder: "Ex: 95" },
+            { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/animal", type: "number", inputMode: "decimal" },
+            { key: "causa", label: "Causa (opcional)", type: "text", placeholder: "Ex: Diarrea, Respiratòria..." },
+          ]}
+          extraContent={(vals) => {
+            const caps = parseInt(vals.caps) || 0;
+            const pp = parseFloat(vals.pesPorc) || 0;
+            const pt = parseFloat(vals.pesKg) || 0;
+            const totalCalc = pt || (pp * caps);
+            return (
+              <div>
+                {pe && <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(236,72,153,0.15)", borderRadius: 10, fontSize: 12, color: "#f9a8d4" }}>Pes estimat: <strong>~{Math.round(pe.perPorc)} kg/animal</strong> (GMD {pe.font} {pe.gmd} g/dia). Ja ve posat, però pots canviar-lo.</div>}
+                {totalCalc > 0 && caps > 0 && <div style={{ marginBottom: 4, padding: "10px 14px", background: "rgba(255,255,255,0.07)", borderRadius: 10, fontSize: 13, color: "rgba(255,255,255,0.7)" }}>→ Pes total de la baixa: <strong style={{ color: "#fff" }}>{totalCalc.toFixed(1)} kg</strong></div>}
+              </div>
+            );
+          }}
+          onConfirm={handleBaixa} onCancel={() => setModal(null)} />;
+      })()}
 
       {modal === "tractament" && <ModalForm title="Registrar tractament" confirmLabel="Guardar tractament" confirmColor="#1A4DB0" fields={[{ key: "data", label: "Data", type: "date", default: TODAY }, { key: "medicament", label: "Nom comercial del medicament", type: "text", placeholder: "Ex: Amoxicil·lina 150mg" }, { key: "recepta", label: "Número de recepta", type: "text", placeholder: "Ex: REC-2026-00123" }, { key: "caps", label: "Nombre d'animals tractats (opcional)", type: "number", inputMode: "numeric", placeholder: "Ex: 12" }, { key: "identificacio", label: "Identificació dels animals", type: "text", placeholder: "Corral infermeria", default: "Corral infermeria" }]} onConfirm={handleTractament} onCancel={() => setModal(null)} />}
 
@@ -2761,7 +2791,7 @@ function AppInterna() {
         onConfirm={handleEditarEntrada} onCancel={() => { setModal(null); setEditantEntrada(null); }} />}
 
       {modal === "editarBaixa" && editantBaixa && <ModalForm title="Editar baixa" confirmLabel="Guardar canvis" confirmColor="#C0392B"
-        fields={[{ key: "data", label: "Data", type: "date", default: editantBaixa.data }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantBaixa.caps) }, { key: "causa", label: "Causa (opcional)", type: "text", default: editantBaixa.causa || "" }]}
+        fields={[{ key: "data", label: "Data", type: "date", default: editantBaixa.data }, { key: "caps", label: "Caps", type: "number", inputMode: "numeric", default: String(editantBaixa.caps) }, { key: "pesPorc", label: "Pes/animal (kg)", type: "number", inputMode: "decimal", placeholder: "Ex: 95" }, { key: "pesKg", label: "Pes total (kg) — opcional si has posat pes/animal", type: "number", inputMode: "decimal", default: editantBaixa.pesKg > 0 ? String(editantBaixa.pesKg) : "" }, { key: "causa", label: "Causa (opcional)", type: "text", default: editantBaixa.causa || "" }]}
         extraContent={(vals, setVals) => (
           <div style={{ marginTop: 4, marginBottom: 4 }}>
             {!vals._confirmDel
