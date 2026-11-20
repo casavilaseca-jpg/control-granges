@@ -912,6 +912,9 @@ function PantallaTracabilitat({ data }) {
 // ── Desmamats ──────────────────────────────────────────────────────────────
 function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot, toast, explotacionsMares = [] }) {
   const fc = FASES.desmamats;
+  // Pes dels garrins desmamats (kg): de l'entrada del lot de transició enllaçat (origen "Desmamats")
+  const totsTrLots = (grangesTransicio || []).flatMap(g => g.lots || []);
+  const pesDesmamada = r => { if (!r || !r.lot_id) return 0; const l = totsTrLots.find(x => x.id === r.lot_id); return l ? (l.entrades || []).filter(e => e.origen === "Desmamats").reduce((s, e) => s + (e.pesKg || 0), 0) : 0; };
   const [vista, setVista] = useState("llista");
   const [seleccionat, setSeleccionat] = useState(null);
   const [granja, setGranja] = useState("");
@@ -1096,6 +1099,7 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
     const tT = garArr.filter(g => g > 0).length;
     const tG = garArr.reduce((s, g) => s + (g || 0), 0);
     const mit = tT > 0 ? (tG / tT).toFixed(1) : "—";
+    const kg = pesDesmamada(rec);
     return (<>
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
         <div style={{ padding: "12px 16px 8px" }}>
@@ -1110,6 +1114,13 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
               <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Garrins</div><div style={{ fontSize: 24, fontWeight: 700, color: fc.colorDark }}>{tG}</div></div>
               <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>Mitj./truja</div><div style={{ fontSize: 24, fontWeight: 700, color: fc.colorDark }}>{mit}</div></div>
             </div>
+            {kg > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center", marginTop: 14, paddingTop: 14, borderTop: `1px solid ${fc.color}33` }}>
+                <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>kg/garrí</div><div style={{ fontSize: 20, fontWeight: 700, color: fc.colorDark }}>{tG > 0 ? (kg / tG).toFixed(2) : "—"}</div></div>
+                <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>kg/truja</div><div style={{ fontSize: 20, fontWeight: 700, color: fc.colorDark }}>{tT > 0 ? (kg / tT).toFixed(1) : "—"}</div></div>
+                <div><div style={{ fontSize: 11, color: "#888", marginBottom: 3 }}>kg totals</div><div style={{ fontSize: 20, fontWeight: 700, color: fc.colorDark }}>{Math.round(kg).toLocaleString()}</div></div>
+              </div>
+            )}
           </div>
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 10 }}>Detall per truja</div>
@@ -1193,6 +1204,7 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
           const tT = garArr.filter(g => g > 0).length;
           const tG = garArr.reduce((s, g) => s + (g || 0), 0);
           const mit = tT > 0 ? (tG / tT).toFixed(1) : "—";
+          const kg = pesDesmamada(r);
           return (
             <div key={r.id} onClick={() => { setSeleccionat(r.id); setDesantLot(false); setVista("detall"); }} style={{ background: "#fff", borderRadius: 16, padding: "16px", marginBottom: 10, cursor: "pointer", border: `1.5px solid ${r.lot_id ? "#6ee7b7" : "transparent"}`, boxShadow: "var(--shadow-sm)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -1200,11 +1212,18 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
                 {r.lot_id && <span style={{ fontSize: 11, background: "#ecfdf5", color: "#065f46", borderRadius: 8, padding: "2px 8px", fontWeight: 600 }}>✓ Lot creat</span>}
               </div>
               <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>{r.data}</div>
-              <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
+              <div style={{ display: "flex", gap: 16, fontSize: 13, marginBottom: kg > 0 ? 8 : 0 }}>
                 <span style={{ color: fc.colorDark, fontWeight: 600 }}>{tT} truges</span>
                 <span style={{ color: fc.colorDark, fontWeight: 600 }}>{tG} garrins</span>
                 <span style={{ color: "#888" }}>{mit}/truja</span>
               </div>
+              {kg > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, background: fc.bgLight, color: fc.colorDark, borderRadius: 8, padding: "3px 9px" }}>{tG > 0 ? (kg / tG).toFixed(2) : "—"} kg/garrí</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, background: fc.bgLight, color: fc.colorDark, borderRadius: 8, padding: "3px 9px" }}>{tT > 0 ? (kg / tT).toFixed(1) : "—"} kg/truja</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, background: fc.bgLight, color: fc.colorDark, borderRadius: 8, padding: "3px 9px" }}>{Math.round(kg).toLocaleString()} kg totals</span>
+                </div>
+              )}
             </div>
           );
         })}
