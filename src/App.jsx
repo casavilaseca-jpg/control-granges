@@ -72,8 +72,8 @@ function pesTeoricLot(l) {
 }
 // GMD de referència d'una fase: mitjana del GMD REAL dels lots tancats (pesats a entrada i sortida)
 function gmdRefDeFase(data, fase) {
-  const gmds = (data[fase] || []).flatMap(g => g.lots)
-    .filter(l => l.estat === "tancat")
+  const gmds = (data[fase] || []).flatMap(g => (g && g.lots) || [])
+    .filter(l => l && l.estat === "tancat")
     .map(l => calcStats(l).gmd)
     .filter(g => g != null && g > 0);
   return gmds.length ? Math.round(gmds.reduce((a, b) => a + b, 0) / gmds.length) : null;
