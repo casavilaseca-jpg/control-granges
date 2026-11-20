@@ -916,6 +916,7 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
   const totsTrLots = (grangesTransicio || []).flatMap(g => g.lots || []);
   const pesDesmamada = r => { if (!r || !r.lot_id) return 0; const l = totsTrLots.find(x => x.id === r.lot_id); return l ? (l.entrades || []).filter(e => e.origen === "Desmamats").reduce((s, e) => s + (e.pesKg || 0), 0) : 0; };
   const [metricaDes, setMetricaDes] = useState("gartruja");
+  const [puntSel, setPuntSel] = useState(null);
   const [vista, setVista] = useState("llista");
   const [seleccionat, setSeleccionat] = useState(null);
   const [granja, setGranja] = useState("");
@@ -1209,22 +1210,29 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
           const ty = v => padT + (1 - (v - mn) / rng) * (CH - padT - padB);
           const line = vals.map((v, i) => `${tx(i)},${ty(v)}`).join(" ");
           const lblInt = Math.ceil(n / 6);
+          const sel = (puntSel != null && puntSel < n) ? puntSel : null;
           return (
             <div style={{ background: "#fff", borderRadius: 16, padding: "14px 12px 10px", marginBottom: 14, border: "1px solid #e2e8f0", boxShadow: "var(--shadow-sm)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tendència desmamats</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: m.color }}>{vals[vals.length - 1].toFixed(m.dec)} <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{m.lbl}</span></div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: m.color }}>{(sel != null ? vals[sel] : vals[vals.length - 1]).toFixed(m.dec)} <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{m.lbl}</span></div>
+                  <div style={{ fontSize: 10, color: "#94a3b8" }}>{sel != null ? punts[sel].data : "últim"}</div>
+                </div>
               </div>
               <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-                {Object.entries(META).map(([k, v]) => <button key={k} onClick={() => setMetricaDes(k)} style={{ flex: "1 1 45%", padding: "6px", borderRadius: 9, border: "1.5px solid " + (metricaDes === k ? v.color : "#e2e8f0"), background: metricaDes === k ? v.color + "18" : "#fff", color: metricaDes === k ? v.color : "#64748b", fontSize: 12, fontWeight: metricaDes === k ? 700 : 500, cursor: "pointer" }}>{v.lbl}</button>)}
+                {Object.entries(META).map(([k, v]) => <button key={k} onClick={() => { setMetricaDes(k); setPuntSel(null); }} style={{ flex: "1 1 45%", padding: "6px", borderRadius: 9, border: "1.5px solid " + (metricaDes === k ? v.color : "#e2e8f0"), background: metricaDes === k ? v.color + "18" : "#fff", color: metricaDes === k ? v.color : "#64748b", fontSize: 12, fontWeight: metricaDes === k ? 700 : 500, cursor: "pointer" }}>{v.lbl}</button>)}
               </div>
               <svg viewBox={`0 0 ${CW} ${CH}`} style={{ width: "100%", height: CH, display: "block" }} preserveAspectRatio="none">
                 {[0, 0.5, 1].map(r => { const v = mn + rng * r; return (<g key={r}><line x1={padL} y1={ty(v)} x2={CW - padR} y2={ty(v)} stroke="#f1f5f9" strokeWidth="1" /><text x={padL - 4} y={ty(v) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{v.toFixed(m.dec)}</text></g>); })}
                 <polygon points={`${tx(0)},${ty(mn)} ${line} ${tx(n - 1)},${ty(mn)}`} fill={m.color} opacity="0.08" />
                 <polyline points={line} fill="none" stroke={m.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-                {vals.map((v, i) => <circle key={i} cx={tx(i)} cy={ty(v)} r="2.6" fill="#fff" stroke={m.color} strokeWidth="1.5" />)}
+                {sel != null && <line x1={tx(sel)} y1={padT} x2={tx(sel)} y2={CH - padB} stroke={m.color} strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />}
+                {vals.map((v, i) => <circle key={i} cx={tx(i)} cy={ty(v)} r={sel === i ? 4.5 : 2.6} fill={sel === i ? m.color : "#fff"} stroke={m.color} strokeWidth="1.5" />)}
                 {punts.map((p, i) => i % lblInt === 0 ? <text key={i} x={tx(i)} y={CH - 4} fontSize="8" fill="#94a3b8" textAnchor="middle">{(p.data || "").slice(5)}</text> : null)}
+                {vals.map((v, i) => <circle key={"hit" + i} cx={tx(i)} cy={ty(v)} r="12" fill="transparent" style={{ cursor: "pointer" }} onClick={() => setPuntSel(i === sel ? null : i)} />)}
               </svg>
+              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 4, textAlign: "center" }}>Toca un punt per veure'n el valor</div>
             </div>
           );
         })()}
