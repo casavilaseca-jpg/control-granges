@@ -915,6 +915,7 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
   // Pes dels garrins desmamats (kg): de l'entrada del lot de transició enllaçat (origen "Desmamats")
   const totsTrLots = (grangesTransicio || []).flatMap(g => g.lots || []);
   const pesDesmamada = r => { if (!r || !r.lot_id) return 0; const l = totsTrLots.find(x => x.id === r.lot_id); return l ? (l.entrades || []).filter(e => e.origen === "Desmamats").reduce((s, e) => s + (e.pesKg || 0), 0) : 0; };
+  const [metricaDes, setMetricaDes] = useState("garri");
   const [vista, setVista] = useState("llista");
   const [seleccionat, setSeleccionat] = useState(null);
   const [granja, setGranja] = useState("");
@@ -1192,6 +1193,41 @@ function PantallaDesmamats({ registres, grangesTransicio, onGuardar, onCrearLot,
         <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>Registres de garrins per truja</div>
       </div>
       <div style={{ padding: "0 12px" }}>
+        {(() => {
+          const META = { garri: { lbl: "kg/garrí", dec: 2, color: "#ec4899" }, truja: { lbl: "kg/truja", dec: 1, color: "#8b5cf6" }, total: { lbl: "kg totals", dec: 0, color: "#0891b2" } };
+          const punts = [...registres].map(r => {
+            const g = Array.isArray(r.garrins) ? r.garrins : [];
+            const tT = g.filter(x => x > 0).length; const tG = g.reduce((s, x) => s + (x || 0), 0); const kg = pesDesmamada(r);
+            return { data: r.data, garri: tG > 0 ? kg / tG : 0, truja: tT > 0 ? kg / tT : 0, total: kg };
+          }).filter(p => p.total > 0).sort((a, b) => (a.data || "").localeCompare(b.data || ""));
+          if (punts.length < 2) return null;
+          const m = META[metricaDes];
+          const vals = punts.map(p => p[metricaDes]);
+          const mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
+          const CW = 320, CH = 150, padL = 34, padR = 10, padT = 12, padB = 22, n = punts.length;
+          const tx = i => padL + i * (CW - padL - padR) / Math.max(n - 1, 1);
+          const ty = v => padT + (1 - (v - mn) / rng) * (CH - padT - padB);
+          const line = vals.map((v, i) => `${tx(i)},${ty(v)}`).join(" ");
+          const lblInt = Math.ceil(n / 6);
+          return (
+            <div style={{ background: "#fff", borderRadius: 16, padding: "14px 12px 10px", marginBottom: 14, border: "1px solid #e2e8f0", boxShadow: "var(--shadow-sm)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.04em" }}>Tendència desmamats</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: m.color }}>{vals[vals.length - 1].toFixed(m.dec)} <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{m.lbl}</span></div>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                {Object.entries(META).map(([k, v]) => <button key={k} onClick={() => setMetricaDes(k)} style={{ flex: 1, padding: "6px", borderRadius: 9, border: "1.5px solid " + (metricaDes === k ? v.color : "#e2e8f0"), background: metricaDes === k ? v.color + "18" : "#fff", color: metricaDes === k ? v.color : "#64748b", fontSize: 12, fontWeight: metricaDes === k ? 700 : 500, cursor: "pointer" }}>{v.lbl}</button>)}
+              </div>
+              <svg viewBox={`0 0 ${CW} ${CH}`} style={{ width: "100%", height: CH, display: "block" }} preserveAspectRatio="none">
+                {[0, 0.5, 1].map(r => { const v = mn + rng * r; return (<g key={r}><line x1={padL} y1={ty(v)} x2={CW - padR} y2={ty(v)} stroke="#f1f5f9" strokeWidth="1" /><text x={padL - 4} y={ty(v) + 3} fontSize="8" fill="#cbd5e1" textAnchor="end">{v.toFixed(m.dec)}</text></g>); })}
+                <polygon points={`${tx(0)},${ty(mn)} ${line} ${tx(n - 1)},${ty(mn)}`} fill={m.color} opacity="0.08" />
+                <polyline points={line} fill="none" stroke={m.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                {vals.map((v, i) => <circle key={i} cx={tx(i)} cy={ty(v)} r="2.6" fill="#fff" stroke={m.color} strokeWidth="1.5" />)}
+                {punts.map((p, i) => i % lblInt === 0 ? <text key={i} x={tx(i)} y={CH - 4} fontSize="8" fill="#94a3b8" textAnchor="middle">{(p.data || "").slice(5)}</text> : null)}
+              </svg>
+            </div>
+          );
+        })()}
         {registres.length === 0 && (
           <div style={{ textAlign: "center", padding: "40px 0", color: "#aaa" }}>
             <div style={{ fontSize: 48, marginBottom: 10 }}>🍼</div>
