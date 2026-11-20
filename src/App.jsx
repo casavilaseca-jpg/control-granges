@@ -1696,6 +1696,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const [tempVis, setTempVis] = useState(true);
   const [tempByDay, setTempByDay] = useState({}); // { 'YYYY-MM-DD': { mean, min, max } }
   const [granjaVis, setGranjaVis] = useState("totes");
+  const [bucketSel, setBucketSel] = useState(null);
   const GEO_LAT = 41.765, GEO_LON = 1.519; // La Molsosa (Solsonès)
 
   // Agrupa granges pel propietari (primer mot del nom, ignorant "Gr")
@@ -1778,6 +1779,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
       ss + l.baixes.filter(b => b.data >= prevStart && b.data < winStart).reduce((sss, b) => sss + b.caps, 0), 0), 0) : 0;
   const trendPct = prevTotal > 0 ? Math.round(((periodeTotal - prevTotal) / prevTotal) * 100) : null;
   const showDots = nPts <= 14;
+  const bSel = (bucketSel != null && bucketSel < nPts) ? bucketSel : null; // bucket seleccionat al gràfic
 
   // Temperatura: descarrega la mitjana diària d'Open-Meteo per al rang visible
   useEffect(() => {
@@ -1913,7 +1915,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
           </div>
           <input type="range" min={0} max={ESCALES_GRAF.length - 1} step={1}
             value={ESCALES_GRAF.findIndex(e => e.key === escala)}
-            onChange={e => setEscala(ESCALES_GRAF[Number(e.target.value)].key)}
+            onChange={e => { setEscala(ESCALES_GRAF[Number(e.target.value)].key); setBucketSel(null); }}
             style={{ width: "100%", accentColor: "#6366f1", cursor: "pointer", margin: 0 }} />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
             <span style={{ fontSize: 9, color: "#cbd5e1" }}>{ESCALES_GRAF[0].label}</span>
@@ -2003,11 +2005,39 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                     </g>
                   );
                 })()}
+                {/* Guia vertical del bucket seleccionat + punts destacats */}
+                {bSel != null && <line x1={tx(bSel)} y1={padT} x2={tx(bSel)} y2={CH - padB} stroke="#0f172a" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
+                {bSel != null && weeklyPerFase.filter(d => fasesVis[d.f]).map(({ f, info, vals }) => vals[bSel] > 0 && <circle key={`sel-${f}`} cx={tx(bSel)} cy={ty(vals[bSel])} r="4" fill={info.color} stroke="#fff" strokeWidth="1.5" />)}
                 {/* Eix X labels */}
                 {buckets.map((b, i) => (
                   <text key={i} x={tx(i)} y={CH - 2} fontSize="8" fill="#94a3b8" textAnchor="middle">{b.lbl}</text>
                 ))}
+                {/* Àrees de toc per bucket (transparents) */}
+                {buckets.map((b, i) => {
+                  const w = (CW - padL - padR) / Math.max(nPts - 1, 1);
+                  return <rect key={`hit-${i}`} x={tx(i) - w / 2} y={padT} width={w} height={CH - padT - padB} fill="transparent" style={{ cursor: "pointer" }} onClick={() => setBucketSel(i === bSel ? null : i)} />;
+                })}
               </svg>
+              {/* Detall del bucket seleccionat */}
+              {bSel != null && (() => {
+                const b = buckets[bSel];
+                const periode = b.start === b.end ? b.start : (b.start + " → " + new Date(new Date(b.end) - 86400000).toISOString().slice(0, 10));
+                const fasesB = weeklyPerFase.filter(d => fasesVis[d.f] && d.vals[bSel] > 0);
+                const totB = fasesB.reduce((s, d) => s + d.vals[bSel], 0);
+                const t = tempAgg[bSel];
+                return (
+                  <div style={{ marginTop: 10, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: fasesB.length ? 6 : 0 }}>
+                      <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{periode}</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: totB > 0 ? "#E24B4A" : "#94a3b8" }}>{totB} {totB === 1 ? "baixa" : "baixes"}</span>
+                    </div>
+                    {fasesB.length > 0 && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {fasesB.map(d => <span key={d.f} style={{ fontSize: 11, color: "#475569" }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: d.info.color, marginRight: 4 }} />{d.info.label}: <strong>{d.vals[bSel]}</strong></span>)}
+                    </div>}
+                    {showTemp && t && t.mean != null && <div style={{ fontSize: 11, color: "#0369a1", marginTop: 6 }}>🌡️ Temp: {t.mean.toFixed(1)}° (mín {t.min != null ? t.min.toFixed(0) : "—"}° · màx {t.max != null ? t.max.toFixed(0) : "—"}°)</div>}
+                  </div>
+                );
+              })()}
               {/* Llegenda amb total per fase — toca per mostrar/amagar */}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
                 {fasaTotals.map(({ f, info, tot }) => {
@@ -2027,7 +2057,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                   </button>
                 )}
               </div>
-              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 6 }}>Toca una fase o la temperatura per mostrar-la o amagar-la · la banda blava és el rang mín–màx · temperatura de La Molsosa (Open-Meteo)</div>
+              <div style={{ fontSize: 9, color: "#cbd5e1", marginTop: 6 }}>Toca un punt del gràfic per veure'n els valors · toca una fase o la temperatura per mostrar-la o amagar-la · temperatura de La Molsosa (Open-Meteo)</div>
             </>
           )}
         </div>
