@@ -1697,6 +1697,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const [tempByDay, setTempByDay] = useState({}); // { 'YYYY-MM-DD': { mean, min, max } }
   const [granjaVis, setGranjaVis] = useState("totes");
   const [bucketSel, setBucketSel] = useState(null);
+  const [faseDetall, setFaseDetall] = useState(null); // fase desplegada dins el detall d'un bucket
   const GEO_LAT = 41.765, GEO_LON = 1.519; // La Molsosa (Solsonès)
 
   // Agrupa granges pel propietari (primer mot del nom, ignorant "Gr")
@@ -1915,7 +1916,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
           </div>
           <input type="range" min={0} max={ESCALES_GRAF.length - 1} step={1}
             value={ESCALES_GRAF.findIndex(e => e.key === escala)}
-            onChange={e => { setEscala(ESCALES_GRAF[Number(e.target.value)].key); setBucketSel(null); }}
+            onChange={e => { setEscala(ESCALES_GRAF[Number(e.target.value)].key); setBucketSel(null); setFaseDetall(null); }}
             style={{ width: "100%", accentColor: "#6366f1", cursor: "pointer", margin: 0 }} />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
             <span style={{ fontSize: 9, color: "#cbd5e1" }}>{ESCALES_GRAF[0].label}</span>
@@ -2015,7 +2016,7 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                 {/* Àrees de toc per bucket (transparents) */}
                 {buckets.map((b, i) => {
                   const w = (CW - padL - padR) / Math.max(nPts - 1, 1);
-                  return <rect key={`hit-${i}`} x={tx(i) - w / 2} y={padT} width={w} height={CH - padT - padB} fill="transparent" style={{ cursor: "pointer" }} onClick={() => setBucketSel(i === bSel ? null : i)} />;
+                  return <rect key={`hit-${i}`} x={tx(i) - w / 2} y={padT} width={w} height={CH - padT - padB} fill="transparent" style={{ cursor: "pointer" }} onClick={() => { setBucketSel(i === bSel ? null : i); setFaseDetall(null); }} />;
                 })}
               </svg>
               {/* Detall del bucket seleccionat */}
@@ -2031,8 +2032,26 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                       <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{periode}</span>
                       <span style={{ fontSize: 14, fontWeight: 800, color: totB > 0 ? "#E24B4A" : "#94a3b8" }}>{totB} {totB === 1 ? "baixa" : "baixes"}</span>
                     </div>
-                    {fasesB.length > 0 && <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      {fasesB.map(d => <span key={d.f} style={{ fontSize: 11, color: "#475569" }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: d.info.color, marginRight: 4 }} />{d.info.label}: <strong>{d.vals[bSel]}</strong></span>)}
+                    {fasesB.length > 0 && <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {fasesB.map(d => {
+                        const obert = faseDetall === d.f;
+                        const lotsB = obert ? (data[d.f] || []).filter(granjaOk).flatMap(g => g.lots.map(l => ({ granja: g.nom, nom: l.nom, caps: l.baixes.filter(x => x.data >= b.start && x.data < b.end).reduce((s, x) => s + x.caps, 0) }))).filter(x => x.caps > 0).sort((a, c) => c.caps - a.caps) : [];
+                        return (
+                          <div key={d.f}>
+                            <button onClick={() => setFaseDetall(obert ? null : d.f)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "transparent", border: "none", padding: "3px 0", cursor: "pointer" }}>
+                              <span style={{ fontSize: 11, color: "#475569" }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: d.info.color, marginRight: 5 }} />{d.info.label} <span style={{ color: "#94a3b8", fontSize: 9 }}>{obert ? "▾" : "▸"}</span></span>
+                              <strong style={{ fontSize: 12, color: d.info.colorDark }}>{d.vals[bSel]}</strong>
+                            </button>
+                            {obert && <div style={{ paddingLeft: 13, marginBottom: 2 }}>
+                              {lotsB.length === 0 ? <div style={{ fontSize: 10, color: "#94a3b8" }}>Sense detall de lot</div> : lotsB.map((x, i) => (
+                                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11, color: "#64748b", padding: "2px 0", borderBottom: "1px solid #eef2f7" }}>
+                                  <span>{x.granja} / {x.nom}</span><strong style={{ color: "#E24B4A" }}>{x.caps}</strong>
+                                </div>
+                              ))}
+                            </div>}
+                          </div>
+                        );
+                      })}
                     </div>}
                     {showTemp && t && t.mean != null && <div style={{ fontSize: 11, color: "#0369a1", marginTop: 6 }}>🌡️ Temp: {t.mean.toFixed(1)}° (mín {t.min != null ? t.min.toFixed(0) : "—"}° · màx {t.max != null ? t.max.toFixed(0) : "—"}°)</div>}
                   </div>
