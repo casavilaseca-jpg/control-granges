@@ -1698,6 +1698,8 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
   const [granjaVis, setGranjaVis] = useState("totes");
   const [bucketSel, setBucketSel] = useState(null);
   const [faseDetall, setFaseDetall] = useState(null); // fase desplegada dins el detall d'un bucket
+  const [existFase, setExistFase] = useState(null); // fase desplegada a la taula d'existències
+  const [existGranja, setExistGranja] = useState(null); // granja desplegada dins una fase
   const GEO_LAT = 41.765, GEO_LON = 1.519; // La Molsosa (Solsonès)
 
   // Agrupa granges pel propietari (primer mot del nom, ignorant "Gr")
@@ -1867,17 +1869,18 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
           {statsPerFase.map(({ f, info, nLots, caps, baixes7, mort }, i) => {
             const hc = mort !== null && mort > 0 ? heatColor(mort) : null;
             const isLast = i === statsPerFase.length - 1;
+            const obertF = existFase === f;
+            const granjesFase = obertF ? (data[f] || []).map(g => { const ob = g.lots.filter(l => l.estat === "obert"); return { g, ob, caps: ob.reduce((s, l) => s + calcStats(l).cap, 0) }; }).filter(x => x.ob.length > 0).sort((a, b) => b.caps - a.caps) : [];
             return (
-              <div key={f} onClick={() => onLotClick(f)} style={{ display: "grid", gridTemplateColumns: "1fr 60px 42px 58px 46px", padding: "13px 14px", borderBottom: isLast ? "none" : "1px solid #f1f5f9", alignItems: "center", cursor: "pointer", transition: "background 0.1s" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <div key={f}>
+              <div onClick={() => { setExistFase(obertF ? null : f); setExistGranja(null); }} style={{ display: "grid", gridTemplateColumns: "1fr 60px 42px 58px 46px", padding: "13px 14px", borderBottom: (isLast && !obertF) ? "none" : "1px solid #f1f5f9", alignItems: "center", cursor: "pointer", background: obertF ? "#f8fafc" : "transparent" }}>
                 {/* Fase */}
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 8, background: info.bgLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: `1px solid ${info.color}33` }}>
                     {info.emoji}
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: info.colorDark }}>{info.label}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: info.colorDark }}>{info.label} <span style={{ color: "#cbd5e1", fontSize: 10 }}>{obertF ? "▾" : "▸"}</span></div>
                     <div style={{ fontSize: 10, color: "#94a3b8" }}>{info.pesRang}</div>
                   </div>
                 </div>
@@ -1901,6 +1904,29 @@ function PantallaDashboard({ data, totesAlertes, dismissed, onLotClick }) {
                 <div style={{ fontSize: 14, fontWeight: 700, textAlign: "right", color: baixes7 > 0 ? "#E24B4A" : "#cbd5e1" }}>
                   {baixes7 > 0 ? baixes7 : "—"}
                 </div>
+              </div>
+              {obertF && (
+                <div style={{ background: "#f8fafc", borderBottom: isLast ? "none" : "1px solid #f1f5f9", padding: "2px 10px 8px" }}>
+                  {granjesFase.length === 0 ? <div style={{ fontSize: 11, color: "#94a3b8", padding: "6px 4px" }}>Sense lots oberts</div> : granjesFase.map(({ g, ob, caps: gcaps }) => {
+                    const obG = existGranja === g.id;
+                    return (
+                      <div key={g.id} style={{ marginBottom: 3 }}>
+                        <button onClick={() => setExistGranja(obG ? null : g.id)} style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", background: obG ? "#eef2ff" : "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 10px", cursor: "pointer" }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}><span style={{ color: "#94a3b8", fontSize: 10 }}>{obG ? "▾" : "▸"}</span> {g.nom} <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400 }}>· {ob.length} lot{ob.length !== 1 ? "s" : ""}</span></span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: info.colorDark }}>{gcaps.toLocaleString()}</span>
+                        </button>
+                        {obG && <div style={{ paddingLeft: 8, marginTop: 2 }}>
+                          {ob.map(l => { const c = calcStats(l).cap; return (
+                            <div key={l.id} onClick={() => onLotClick(f, g.id, l.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "#475569", padding: "6px 8px", cursor: "pointer", borderBottom: "1px solid #eef2f7" }}>
+                              <span>{l.nom} <span style={{ color: "#94a3b8" }}>→</span></span><strong style={{ color: "#0f172a" }}>{c.toLocaleString()}</strong>
+                            </div>
+                          ); })}
+                        </div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               </div>
             );
           })}
