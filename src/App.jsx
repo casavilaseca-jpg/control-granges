@@ -118,8 +118,9 @@ function MiniGraficBaixes({ lot, color }) {
   const line = pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ");
   const area = `${tx(0)},${H} ` + pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ") + ` ${tx(totalDies)},${H}`;
   const uid = "g" + lot.id.replace(/-/g, "").slice(0, 8);
-  // Marques de l'eix X: números de dia a intervals regulars al llarg de tot el gràfic
-  const step = totalDies <= 10 ? 2 : totalDies <= 30 ? 5 : totalDies <= 70 ? 10 : totalDies <= 150 ? 25 : 50;
+  // Marques de l'eix X: números de dia en passos setmanals (7 dies); s'eixampla en lots molt llargs
+  const setmanes = Math.ceil(totalDies / 7);
+  const step = setmanes <= 10 ? 7 : setmanes <= 20 ? 14 : setmanes <= 40 ? 28 : 56;
   const dies = [];
   for (let d = 0; d <= totalDies; d += step) dies.push(d);
   if (totalDies - dies[dies.length - 1] < step * 0.5) dies[dies.length - 1] = totalDies; else dies.push(totalDies);
