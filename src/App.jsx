@@ -118,6 +118,11 @@ function MiniGraficBaixes({ lot, color }) {
   const line = pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ");
   const area = `${tx(0)},${H} ` + pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ") + ` ${tx(totalDies)},${H}`;
   const uid = "g" + lot.id.replace(/-/g, "").slice(0, 8);
+  // Marques de data a l'eix X
+  const addDies = (iso, n) => { const d = new Date(iso); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const fmtDM = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+  const nT = totalDies <= 7 ? 2 : totalDies <= 40 ? 3 : 4;
+  const ticks = [...new Set(Array.from({ length: nT }, (_, i) => Math.round(i / (nT - 1) * totalDies)))].map(dayOff => ({ dayOff, date: addDies(d0, dayOff) }));
 
   return (
     <div style={{ marginTop: 10, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
@@ -132,11 +137,16 @@ function MiniGraficBaixes({ lot, color }) {
             <stop offset="100%" stopColor={color} stopOpacity="0.03" />
           </linearGradient>
         </defs>
+        {ticks.map((t, i) => <line key={i} x1={tx(t.dayOff)} y1={0} x2={tx(t.dayOff)} y2={H} stroke="#000" strokeOpacity="0.05" strokeWidth="1" />)}
         <polygon points={area} fill={`url(#${uid})`} />
         <polyline points={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#ccc", marginTop: 1 }}>
-        <span>Dia 0</span><span>Dia {totalDies}</span>
+      <div style={{ position: "relative", height: 13, marginTop: 2 }}>
+        {ticks.map((t, i) => {
+          const pos = tx(t.dayOff) / W * 100;
+          const st = i === 0 ? { left: 0 } : i === ticks.length - 1 ? { right: 0 } : { left: pos + "%", transform: "translateX(-50%)" };
+          return <span key={i} style={{ position: "absolute", top: 0, fontSize: 9, color: "#bbb", whiteSpace: "nowrap", ...st }}>{fmtDM(t.date)}</span>;
+        })}
       </div>
     </div>
   );
