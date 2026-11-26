@@ -118,11 +118,11 @@ function MiniGraficBaixes({ lot, color }) {
   const line = pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ");
   const area = `${tx(0)},${H} ` + pts.map(([d, v]) => `${tx(d)},${ty(v)}`).join(" ") + ` ${tx(totalDies)},${H}`;
   const uid = "g" + lot.id.replace(/-/g, "").slice(0, 8);
-  // Marques de data a l'eix X
-  const addDies = (iso, n) => { const d = new Date(iso); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
-  const fmtDM = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
-  const nT = totalDies <= 7 ? 2 : totalDies <= 40 ? 3 : 4;
-  const ticks = [...new Set(Array.from({ length: nT }, (_, i) => Math.round(i / (nT - 1) * totalDies)))].map(dayOff => ({ dayOff, date: addDies(d0, dayOff) }));
+  // Marques de l'eix X: números de dia a intervals regulars al llarg de tot el gràfic
+  const step = totalDies <= 10 ? 2 : totalDies <= 30 ? 5 : totalDies <= 70 ? 10 : totalDies <= 150 ? 25 : 50;
+  const dies = [];
+  for (let d = 0; d <= totalDies; d += step) dies.push(d);
+  if (totalDies - dies[dies.length - 1] < step * 0.5) dies[dies.length - 1] = totalDies; else dies.push(totalDies);
 
   return (
     <div style={{ marginTop: 10, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
@@ -137,17 +137,18 @@ function MiniGraficBaixes({ lot, color }) {
             <stop offset="100%" stopColor={color} stopOpacity="0.03" />
           </linearGradient>
         </defs>
-        {ticks.map((t, i) => <line key={i} x1={tx(t.dayOff)} y1={0} x2={tx(t.dayOff)} y2={H} stroke="#000" strokeOpacity="0.05" strokeWidth="1" />)}
+        {dies.map((d, i) => <line key={i} x1={tx(d)} y1={0} x2={tx(d)} y2={H} stroke="#000" strokeOpacity="0.05" strokeWidth="1" />)}
         <polygon points={area} fill={`url(#${uid})`} />
         <polyline points={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
       <div style={{ position: "relative", height: 13, marginTop: 2 }}>
-        {ticks.map((t, i) => {
-          const pos = tx(t.dayOff) / W * 100;
-          const st = i === 0 ? { left: 0 } : i === ticks.length - 1 ? { right: 0 } : { left: pos + "%", transform: "translateX(-50%)" };
-          return <span key={i} style={{ position: "absolute", top: 0, fontSize: 9, color: "#bbb", whiteSpace: "nowrap", ...st }}>{fmtDM(t.date)}</span>;
+        {dies.map((d, i) => {
+          const pos = tx(d) / W * 100;
+          const st = i === 0 ? { left: 0 } : i === dies.length - 1 ? { right: 0 } : { left: pos + "%", transform: "translateX(-50%)" };
+          return <span key={i} style={{ position: "absolute", top: 0, fontSize: 9, color: "#bbb", whiteSpace: "nowrap", ...st }}>{d}</span>;
         })}
       </div>
+      <div style={{ fontSize: 8, color: "#ccc", textAlign: "center", marginTop: 1 }}>dia de vida del lot</div>
     </div>
   );
 }
